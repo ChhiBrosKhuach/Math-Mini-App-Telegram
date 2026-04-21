@@ -785,11 +785,17 @@ function clearTimer() {
 async function saveQuizSessionStart() {
     if (!state.questions.length || !state.telegramId) return;
     try {
+        // Send correct:0, wrong:0 — the backend must NOT add these to
+        // total_correct / total_wrong on status:'started'.
+        // It should only record that the quiz was opened (lightweight row).
+        // Real counts come in when status:'completed' arrives from finishQuiz().
+        // This fixes the bug where total_questions ballooned because each quiz
+        // open was writing wrong:5 AND then finish wrote the real numbers again.
         const result = await api('submit_quiz', {
             results: {
                 topic: state.currentTopic,
                 correct: 0,
-                wrong: state.questions.length,
+                wrong: 0,
                 total: state.questions.length,
                 accuracy: 0,
                 questions: state.questions.map(q => q.id),
@@ -1096,18 +1102,22 @@ function switchView(view) {
 }
 
 function goHome() {
-    // ANTI-CHEAT: if the student bails out mid-quiz and we haven't already
-    // saved a start record, save now with 0 correct so it counts as attempted.
+    // ANTI-CHEAT: if the student opened a quiz but the session-start API call
+    // somehow never fired (e.g. network was too slow), fire it now so the quiz
+    // is still recorded. We do NOT fire it a second time if already saved.
+    // NOTE: correct:0 / wrong:0 are sent — the PHP backend must only count
+    // real numbers from the status:'completed' call, never from status:'started'.
     if (state.questions.length > 0 && !state.quizStartSaved && state.currentTopic) {
         saveQuizSessionStart();
     }
-    // Reset quiz state so a fresh start next time
+    // Reset quiz state
     state.questions = [];
     state.currentQuestionIndex = 0;
     state.correctAnswers = 0;
     state.wrongAnswers = 0;
     state.quizSessionId = null;
     state.quizStartSaved = false;
+    clearTimer();
     switchView('home');
 }
 
@@ -1117,7 +1127,7 @@ async function loadProfile() {
         const data = await api('get_profile', { telegram_id: state.telegramId });
         if (!data.success) return;
         const u = data.user || {};
-        const totalQ = (u.total_correct || 0) + (u.total_wrong || 0);
+        const totalQ = (u.total_correct || 0) + ' / ' + (u.total_wrong || 0);
         qs('totalAnswered').textContent = totalQ;
         qs('bestStreak').textContent = u.best_streak || 0;
         qs('topicsCompleted').textContent = data.topics_completed || 0;
