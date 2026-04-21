@@ -1,0 +1,1329 @@
+const API_URL = 'https://khmerservice.online/math/api.php';
+
+// ================= TELEGRAM =================
+const tg = window.Telegram.WebApp;
+tg.expand();
+tg.ready();
+
+// ================= STATE =================
+const state = {
+    telegramId: null,
+    user: null,
+    questions: [],
+    currentQuestionIndex: 0,
+    selectedOption: null,
+    hasAnswered: false,
+    loading: false,
+    correctAnswers: 0,
+    wrongAnswers: 0,
+    currentTopic: null,
+    userStats: null
+};
+
+// ================= CHAT STATE =================
+let isChatReady = false;
+let chatInterval = null;
+let chatLastId = 0;
+let chatMessagesCache = [];
+let hasChatLoadedOnce = false;
+let unreadChatCount = 0;
+let isChatInitialized = false;
+// FEATURE: 50 message limit constant
+const MAX_CHAT_MESSAGES = 50;
+
+// ================= HELPERS =================
+function qs(id) {
+    return document.getElementById(id);
+}
+
+function toggleMathHelper() {
+    const el = qs('mathHelper');
+    if (el) el.classList.toggle('hidden');
+}
+
+function fakeChatLoading() {
+    const overlay = qs('chatLoading');
+    const bar = qs('chatLoadingBar');
+    const text = qs('chatLoadingText');
+
+    if (!overlay) return;
+
+    overlay.style.display = 'flex'; // FORCE show
+
+    setChatLocked(true);
+
+    let progress = 0;
+
+    const interval = setInterval(() => {
+        progress += 2;
+
+        if (progress >= 100) {
+            progress = 100;
+            clearInterval(interval);
+
+            setTimeout(() => {
+                overlay.style.display = 'none'; // FORCE hide
+                setChatLocked(false);
+                hasChatLoadedOnce = true;
+            }, 200);
+        }
+
+        if (bar) bar.style.width = progress + '%';
+        if (text) text.textContent = progress + '%';
+
+    }, 80);
+    setChatLocked(false);
+    hasChatLoadedOnce = true;
+}
+
+function insertMath(latex) {
+    const input = qs('chatInput');
+    if (!input) return;
+
+    const before = input.value.slice(0, input.selectionStart);
+    const after = input.value.slice(input.selectionEnd);
+    const wrapper = before.endsWith(' ') || before === '' ? '' : ' ';
+
+    input.value = before + wrapper + '$' + latex + '$ ' + after;
+    input.focus();
+
+    // Move cursor after inserted text
+    const newPos = (before + wrapper + '$' + latex + '$ ').length;
+    input.setSelectionRange(newPos, newPos);
+}
+
+function updateLoadingProgress(percent) {
+    const bar = qs('loadingBar');
+    const text = qs('loadingPercent');
+
+    if (bar) bar.style.width = percent + '%';
+    if (text) text.textContent = percent + '%';
+}
+
+function showError(msg) {
+    console.error('Error:', msg);
+    if (tg && tg.showAlert) {
+        tg.showAlert(msg || 'Something went wrong');
+    } else {
+        alert(msg || 'Something went wrong');
+    }
+}
+
+function setLoading(val) {
+    state.loading = val;
+    const el = qs('loadingView');
+    if (el) el.classList.toggle('hidden', !val);
+}
+
+function forceShowApp() {
+    console.log('Force showing app...');
+    setLoading(false);
+    const mc = qs('mainContent');
+    if (mc) mc.classList.remove('hidden');
+    switchView('home');
+}
+
+// ================= API =================
+async function api(action, data) {
+    try {
+        const payload = {
+            action: action,
+            telegram_id: state.telegramId,
+            ...data
+        };
+
+        console.log('API Request:', action, payload);
+
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            throw new Error('HTTP ' + res.status);
+        }
+
+        const json = await res.json();
+        console.log('API Response:', action, json);
+        return json;
+
+    } catch (e) {
+        console.error('API Error:', action, e);
+        return {
+            success: false,
+            error: 'Network error'
+        };
+    }
+}
+
+// ================= CHAT FUNCTIONS =================
+function getUserColor(id) {
+    const colors = [
+        'from-blue-500 to-blue-600',
+        'from-purple-500 to-purple-600',
+        'from-orange-500 to-orange-600',
+        'from-pink-500 to-pink-600',
+        'from-indigo-500 to-indigo-600',
+        'from-teal-500 to-teal-600',
+        'from-red-500 to-red-600',
+        'from-green-500 to-green-600'
+    ];
+    const num = parseInt(id) || 0;
+    return 'bg-gradient-to-br ' + colors[Math.abs(num) % colors.length];
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// FEATURE: Name tap special color handler
+let selectedUser = null;
+
+function tapUsername(el, name, userId) {
+    // UI highlight (keep your existing effect)
+    document.querySelectorAll('.username-tapped').forEach(e => {
+        if (e !== el) e.classList.remove('username-tapped');
+    });
+    el.classList.add('username-tapped');
+
+    // Save selected user
+    selectedUser = {
+        id: userId,
+        name: name
+    };
+
+    openUserProfile(selectedUser);
+
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function openUserProfile(user) {
+    const modal = qs('userProfileModal');
+    modal.classList.remove('hidden');
+
+    // Avatar
+    const avatar = qs('profileAvatar');
+    avatar.className = 'w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ' + getUserColor(user.id);
+    avatar.textContent = user.name.charAt(0).toUpperCase();
+
+    // Name
+    qs('profileUsername').textContent = user.name;
+
+    // Fake data (later connect API)
+    qs('profilePointsMini').textContent = Math.floor(Math.random() * 500);
+    qs('profileMessages').textContent = Math.floor(Math.random() * 100);
+    qs('profileRankMini').textContent = '#' + Math.floor(Math.random() * 50);
+}
+
+function closeProfile() {
+    qs('userProfileModal').classList.add('hidden');
+}
+
+function mentionUser() {
+    if (!selectedUser) return;
+    const input = qs('chatInput');
+
+    const mention = '@' + selectedUser.name.replace(/\s+/g, '_') + ' ';
+    input.value += mention;
+    input.focus();
+
+    closeProfile();
+}
+
+function openFullProfile() {
+    switchView('profile'); // reuse your profile page
+    closeProfile();
+}
+
+function renderMathText(text) {
+    if (!text || typeof window.katex === 'undefined') return escapeHtml(text).replace(/\n/g, '<br>');
+
+    // Parse text into segments: text | inline_math | display_math
+    const segments = [];
+    let remaining = text;
+
+    // First pass: extract display math $$...$$
+    const displayRegex = /\$\$([\s\S]+?)\$\$/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = displayRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            segments.push({
+                type: 'text',
+                content: text.slice(lastIndex, match.index)
+            });
+        }
+        segments.push({
+            type: 'display',
+            content: match[1].trim()
+        });
+        lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+        segments.push({
+            type: 'text',
+            content: text.slice(lastIndex)
+        });
+    }
+
+    // Second pass: extract inline math $...$ from text segments
+    const finalSegments = [];
+    segments.forEach(seg => {
+        if (seg.type !== 'text') {
+            finalSegments.push(seg);
+            return;
+        }
+
+        const inlineRegex = /\$((?:\\\$|[^\$])+?)\$/g;
+        let txt = seg.content;
+        let idx = 0;
+        let m;
+
+        while ((m = inlineRegex.exec(txt)) !== null) {
+            if (m.index > idx) {
+                finalSegments.push({
+                    type: 'text',
+                    content: txt.slice(idx, m.index)
+                });
+            }
+            finalSegments.push({
+                type: 'inline',
+                content: m[1].trim()
+            });
+            idx = m.index + m[0].length;
+        }
+        if (idx < txt.length) {
+            finalSegments.push({
+                type: 'text',
+                content: txt.slice(idx)
+            });
+        }
+    });
+
+    // Render all segments
+    return finalSegments.map(seg => {
+        if (seg.type === 'text') {
+            return escapeHtml(seg.content).replace(/\n/g, '<br>');
+        }
+        try {
+            return window.katex.renderToString(seg.content, {
+                throwOnError: false,
+                displayMode: seg.type === 'display',
+                strict: false
+            });
+        } catch (e) {
+            return escapeHtml(seg.type === 'display' ? '$$' + seg.content + '$$' : '$' + seg.content + '$');
+        }
+    }).join('');
+}
+
+function formatChatTime(dateString) {
+    const d = new Date(dateString);
+    return d.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatChatDate(dateString) {
+    const d = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric'
+    });
+}
+document.addEventListener('focusin', (e) => {
+    if (!hasChatLoadedOnce) {
+        if (e.target.id === 'chatInput') {
+            e.target.blur();
+        }
+    }
+});
+
+async function initChat() {
+    if (!isChatInitialized) {
+        await loadChatMessages();
+        await loadChatStats();
+        isChatInitialized = true;
+    }
+    if (!hasChatLoadedOnce) return;
+    chatInput.focus();
+    unreadChatCount = 0;
+    const badge = qs('chatBadge');
+    if (badge) badge.classList.add('hidden');
+
+    if (chatInterval) clearInterval(chatInterval);
+    chatInterval = setInterval(() => {
+        const chatView = qs('chatView');
+        if (chatView && !chatView.classList.contains('hidden')) {
+            pollChatMessages();
+        }
+    }, 3000);
+
+    setTimeout(() => {
+        const input = qs('chatInput');
+        if (input) input.focus();
+    }, 300);
+}
+
+async function loadChatMessages() {
+    try {
+        const data = await api('get_chat_messages', {
+            limit: 50
+        });
+        if (data.success && Array.isArray(data.messages)) {
+            // FEATURE: Only keep last 50 messages in cache
+            chatMessagesCache = data.messages.slice(-MAX_CHAT_MESSAGES);
+            renderChatMessages();
+        }
+    } catch (e) {
+        console.error('loadChatMessages error:', e);
+    }
+}
+
+async function pollChatMessages() {
+    try {
+        const data = await api('get_chat_messages', {
+            limit: 50,
+            after_id: chatLastId
+        });
+        if (!data.success || !Array.isArray(data.messages)) return;
+
+        const existingIds = new Set(chatMessagesCache.map(m => parseInt(m.id)));
+        const newMsgs = data.messages.filter(m => !existingIds.has(parseInt(m.id)));
+
+        if (newMsgs.length > 0) {
+            chatMessagesCache.push(...newMsgs);
+
+            // FEATURE: Enforce 50 message limit - delete old messages
+            if (chatMessagesCache.length > MAX_CHAT_MESSAGES) {
+                chatMessagesCache = chatMessagesCache.slice(-MAX_CHAT_MESSAGES);
+            }
+
+            renderChatMessages();
+
+            const hasOthers = newMsgs.some(m => m.telegram_id != state.telegramId);
+            if (hasOthers && tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+
+            const chatView = qs('chatView');
+            if (chatView && chatView.classList.contains('hidden')) {
+                unreadChatCount += newMsgs.length;
+                const badge = qs('chatBadge');
+                if (badge) badge.classList.remove('hidden');
+            }
+        }
+    } catch (e) {
+        console.error('pollChatMessages error:', e);
+    }
+}
+
+function renderChatMessages() {
+    const container = qs('chatMessages');
+    if (!container) return;
+
+    if (!chatMessagesCache || chatMessagesCache.length === 0) {
+        container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400 fade-in">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                        </div>
+                        <p class="text-sm font-medium">No messages yet</p>
+                        <p class="text-xs mt-1">Be the first to say hello!</p>
+                    </div>
+                `;
+        return;
+    }
+
+    let html = '';
+    let lastDate = null;
+    let lastSender = null;
+
+    chatMessagesCache.forEach((msg) => {
+        const msgDate = formatChatDate(msg.created_at);
+        const isNewDay = msgDate !== lastDate;
+
+        if (isNewDay) {
+            html += `<div class="flex justify-center my-4"><span class="text-[10px] font-medium bg-gray-200/80 text-gray-500 px-3 py-1 rounded-full">${msgDate}</span></div>`;
+            lastDate = msgDate;
+            lastSender = null;
+        }
+
+        if (msg.type === 'system') {
+            html += `<div class="flex justify-center my-2 message-bubble"><span class="text-[11px] text-gray-400 italic bg-gray-100/80 px-3 py-1 rounded-full border border-gray-100">${escapeHtml(msg.message)}</span></div>`;
+            return;
+        }
+
+        const isMe = String(msg.telegram_id) === String(state.telegramId);
+        const time = formatChatTime(msg.created_at);
+        const initial = (msg.first_name || 'U').charAt(0).toUpperCase();
+        const colorClass = getUserColor(msg.telegram_id);
+        const showAvatar = !isMe && lastSender !== msg.telegram_id;
+
+        // FEATURE: Username tap with special color
+        const userNameDisplay = escapeHtml(msg.first_name || 'User');
+
+        function getBadge(user) {
+            if (user.streak >= 1) return "🔥";
+            if (user.xp >= 500) return "🏆";
+            return "";
+        }
+
+        function getNameStyle(user) {
+            if (user.xp >= 500) return 'name-gradient';
+            return 'name-clean';
+        }
+
+        async function apis(action, data = {}) {
+            const res = await fetch('api.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action,
+                    data
+                })
+            });
+
+            if (!res.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const json = await res.json();
+
+            if (json.error) {
+                throw new Error(json.error);
+            }
+
+            return json;
+        }
+
+
+        const badge = getBadge(msg);
+        const styleClass = getNameStyle(msg);
+        const streak = msg.streak || 0;
+        const xp = msg.xp || 0;
+
+        const userNameHtml = `
+<div>
+    <p class="username-tap ${styleClass}" 
+       data-name="${userNameDisplay}" 
+       data-id="${msg.telegram_id}">
+       ${badge} ${userNameDisplay}
+    </p>
+
+    <div class="text-[10px] text-gray-400 flex gap-2">
+        <span>🔥 ${streak}</span>
+        <span>⭐ ${xp}</span>
+    </div>
+</div>
+`;
+
+        html += `
+                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'} message-bubble mb-1">
+                        ${(!isMe && showAvatar) ? `<div class="w-8 h-8 rounded-full ${colorClass} flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0 shadow-sm mt-auto mb-5">${initial}</div>` : ''}
+                        ${(!isMe && !showAvatar) ? '<div class="w-8 mr-2 flex-shrink-0"></div>' : ''}
+                        
+                        <div class="max-w-[75%] min-w-0">
+                            ${(!isMe && showAvatar) ? userNameHtml : ''}
+                            <div class="${isMe ? 'bg-teal-600 text-white rounded-2xl rounded-tr-sm' : 'bg-white text-gray-800 rounded-2xl rounded-tl-sm'} px-4 py-2.5 shadow-sm break-words">
+                                <p class="text-[13px] leading-relaxed katex-chat">${renderMathText(msg.message)}</p>
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-0.5 ${isMe ? 'text-right mr-1' : 'text-left ml-1'}">${time}</p>
+                        </div>
+                    </div>
+                `;
+
+        lastSender = msg.telegram_id;
+    });
+
+    container.innerHTML = html;
+
+    setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+    }, 50);
+
+    if (chatMessagesCache.length > 0) {
+        chatLastId = Math.max(...chatMessagesCache.map(m => parseInt(m.id) || 0));
+    }
+}
+
+async function sendChatMessage() {
+    const input = qs('chatInput');
+    const text = input ? input.value.trim() : '';
+    if (!text || text.length > 500) return;
+
+    if (!state.telegramId) {
+        showError('Not authenticated');
+        return;
+    }
+
+    if (input) input.value = '';
+    const btn = qs('sendBtn');
+    if (btn) btn.disabled = true;
+
+    const tempId = 'temp_' + Date.now();
+    const tempMsg = {
+        id: tempId,
+        telegram_id: state.telegramId,
+        first_name: state.user?.first_name || 'You',
+        message: text,
+        created_at: new Date().toISOString(),
+        type: 'text',
+        xp: state.userStats?.xp || 0,
+        streak: state.userStats?.streak || 0
+    };
+    chatMessagesCache.push(tempMsg);
+
+    // FEATURE: Enforce 50 message limit on send too
+    if (chatMessagesCache.length > MAX_CHAT_MESSAGES) {
+        chatMessagesCache = chatMessagesCache.slice(-MAX_CHAT_MESSAGES);
+    }
+
+    renderChatMessages();
+
+    try {
+        const data = await api('send_chat_message', {
+            telegram_id: state.telegramId,
+            message: text,
+            first_name: state.user?.first_name || 'User',
+            username: state.user?.username || null
+        });
+
+        if (data.success) {
+            await loadChatMessages();
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        } else {
+            chatMessagesCache = chatMessagesCache.filter(m => String(m.id) !== tempId);
+            renderChatMessages();
+            showError(data.error || 'Failed to send message');
+        }
+    } catch (e) {
+        console.error('sendChatMessage error:', e);
+        chatMessagesCache = chatMessagesCache.filter(m => String(m.id) !== tempId);
+        renderChatMessages();
+    }
+
+    if (btn) btn.disabled = false;
+    if (input) input.focus();
+}
+
+async function loadChatStats() {
+    try {
+        const data = await api('get_chat_stats');
+        if (data.success && data.stats) {
+            const el = qs('chatUserCount');
+            if (el) el.textContent = data.stats.users || 0;
+        }
+    } catch (e) {
+        console.log('Stats load failed', e);
+    }
+}
+
+// ================= INIT =================
+
+async function init() {
+    console.log('INIT START');
+
+    // Start loading
+    updateLoadingProgress(5);
+
+    // Safety timeout (keep your original behavior)
+    setTimeout(() => {
+        const loading = qs('loadingView');
+        if (loading && !loading.classList.contains('hidden')) {
+            console.log('Safety timeout triggered');
+            forceShowApp();
+        }
+    }, 4000);
+
+    try {
+        // ===== STEP 1: Get Telegram user =====
+        updateLoadingProgress(15);
+
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            state.user = tg.initDataUnsafe.user;
+            state.telegramId = state.user.id;
+
+            qs('userName').textContent = state.user.first_name;
+            qs('profileName').textContent = state.user.first_name +
+                (state.user.last_name ? ' ' + state.user.last_name : '');
+            qs('profileInitial').textContent = state.user.first_name.charAt(0).toUpperCase();
+        } else {
+            state.telegramId = 'demo_' + Date.now();
+            state.user = {
+                id: state.telegramId,
+                first_name: 'Demo User',
+                username: 'demo'
+            };
+
+            qs('userName').textContent = 'Demo User';
+            qs('profileName').textContent = 'Demo User';
+            qs('profileInitial').textContent = 'D';
+        }
+
+        // ===== STEP 2: Auth =====
+        updateLoadingProgress(35);
+
+        try {
+            const auth = await api('auth', {
+                user: state.user
+            });
+            if (auth.success && auth.user) {
+                updateUserDisplay(auth.user);
+            }
+        } catch (e) {
+            console.error('Auth error:', e);
+        }
+
+        // ===== STEP 3: Load topics =====
+        updateLoadingProgress(60);
+
+        try {
+            await loadTopics();
+        } catch (e) {
+            console.error('Topics error:', e);
+        }
+        // ===== STEP 4: Load chat PROPERLY =====
+        updateLoadingProgress(70);
+
+        try {
+            // Show skeleton instead of empty jump
+            const chatContainer = qs('chatMessages');
+            if (chatContainer) {
+                chatContainer.innerHTML = `
+            <div class="space-y-2">
+                <div class="h-10 bg-gray-200 rounded-xl skeleton"></div>
+                <div class="h-10 bg-gray-200 rounded-xl skeleton w-3/4"></div>
+                <div class="h-10 bg-gray-200 rounded-xl skeleton w-1/2"></div>
+            </div>
+        `;
+            }
+
+            await loadChatMessages();
+            await loadChatStats();
+
+            isChatReady = true;
+
+        } catch (e) {
+            console.log('Chat preload failed', e);
+        }
+
+        updateLoadingProgress(100);
+
+        // ===== STEP 4: Optional preload chat =====
+        updateLoadingProgress(80);
+
+        try {
+            await loadChatMessages();
+        } catch (e) {
+            console.log('Chat preload skipped');
+        }
+
+        // ===== STEP 5: Finish =====
+        updateLoadingProgress(100);
+
+    } catch (e) {
+        console.error('Init fatal error:', e);
+    }
+
+    // Small delay so user sees 100%
+    setTimeout(() => {
+        setLoading(false);
+        qs('mainContent').classList.remove('hidden');
+        switchView('home');
+    }, 400);
+
+    checkAdminMessage();
+    setupChatViewport();
+}
+// ================= VIEWPORT / KEYBOARD FIX =================
+function setupChatViewport() {
+    // When Telegram viewport changes (keyboard opens/closes), keep chat scrolled to bottom
+    tg.onEvent('viewportChanged', () => {
+        setTimeout(() => {
+            const cm = qs('chatMessages');
+            if (cm) cm.scrollTop = cm.scrollHeight;
+        }, 100);
+    });
+
+    // Mobile visual viewport listener (handles keyboard on iOS/Android)
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            setTimeout(() => {
+                const cm = qs('chatMessages');
+                if (cm) cm.scrollTop = cm.scrollHeight;
+
+                const input = qs('chatInput');
+                if (input && document.activeElement === input) {
+                    input.scrollIntoView({
+                        block: 'nearest',
+                        behavior: 'smooth'
+                    });
+                }
+            }, 100);
+        });
+    }
+
+    // When user taps into message input, ensure latest messages stay visible above keyboard
+    const chatInput = qs('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('focus', () => {
+            setTimeout(() => {
+                const cm = qs('chatMessages');
+                if (cm) {
+                    cm.scrollTo({
+                        top: cm.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+                chatInput.scrollIntoView({
+                    block: 'nearest',
+                    behavior: 'smooth'
+                });
+            }, 300);
+        });
+
+        chatInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                const cm = qs('chatMessages');
+                if (cm) cm.scrollTop = cm.scrollHeight;
+            }, 100);
+        });
+    }
+}
+
+function updateUserDisplay(u) {
+    const streak = qs('streakCount');
+    const points = qs('profilePoints');
+    if (streak) streak.textContent = u.streak || 0;
+    if (points) points.textContent = u.xp || 0;
+    state.userStats = u;
+}
+
+async function loadTopics() {
+    try {
+        const data = await api('get_questions_admin', {});
+        if (!data.success || !Array.isArray(data.questions)) {
+            qs('questionCount').textContent = '0 questions';
+            return;
+        }
+
+        const topics = {};
+        data.questions.forEach(q => {
+            if (q.topic) topics[q.topic] = (topics[q.topic] || 0) + 1;
+        });
+
+        const topicConfig = [{
+                id: 'Algebra',
+                name: 'Algebra',
+                icon: '📐',
+                color: 'from-blue-500 to-blue-600',
+                desc: 'Equations & polynomials'
+            },
+            {
+                id: 'Geometry',
+                name: 'Geometry',
+                icon: '📏',
+                color: 'from-teal-500 to-teal-600',
+                desc: 'Shapes & theorems'
+            },
+            {
+                id: 'Arithmetic',
+                name: 'Arithmetic',
+                icon: '🔢',
+                color: 'from-purple-500 to-purple-600',
+                desc: 'Numbers & operations'
+            },
+            {
+                id: 'Trigonometry',
+                name: 'Trigonometry',
+                icon: '📊',
+                color: 'from-orange-500 to-orange-600',
+                desc: 'Sin, Cos, Tan'
+            }
+        ];
+
+        const total = Object.values(topics).reduce((a, b) => a + b, 0);
+        qs('questionCount').textContent = total + ' questions available';
+
+        const grid = qs('topicsGrid');
+        if (grid) {
+            grid.innerHTML = topicConfig.map(t => `
+                        <div class="topic-card bg-white rounded-2xl p-4 card-shadow cursor-pointer btn-press" onclick="startQuiz('${t.id}')">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center text-2xl mb-3">
+                                ${t.icon}
+                            </div>
+                            <h4 class="font-bold text-gray-900">${t.name}</h4>
+                            <p class="text-xs text-gray-500 mt-1">${topics[t.id] || 0} questions</p>
+                            <p class="text-xs text-gray-400">${t.desc}</p>
+                        </div>
+                    `).join('');
+        }
+    } catch (e) {
+        console.error('loadTopics error:', e);
+    }
+}
+
+function checkAdminMessage() {
+    // Placeholder
+}
+
+function dismissBanner() {
+    const banner = qs('adminBanner');
+    if (banner) banner.classList.add('hidden');
+}
+
+// ================= QUIZ =================
+async function startQuiz(topic) {
+    if (state.loading) return;
+
+    state.currentTopic = topic;
+    state.currentQuestionIndex = 0;
+    state.correctAnswers = 0;
+    state.wrongAnswers = 0;
+
+    setLoading(true);
+    try {
+        const data = await api('get_questions', {
+            topic: topic,
+            limit: 5
+        });
+        setLoading(false);
+
+        if (!data.success || !data.questions || data.questions.length === 0) {
+            showError('No questions available for this topic');
+            return;
+        }
+
+        state.questions = data.questions;
+        switchView('quiz');
+        loadQuestion();
+    } catch (e) {
+        setLoading(false);
+        showError('Failed to load questions');
+    }
+}
+
+function startDailyChallenge() {
+    const topics = ['Algebra', 'Geometry', 'Arithmetic', 'Trigonometry'];
+    const random = topics[Math.floor(Math.random() * topics.length)];
+    startQuiz(random);
+}
+
+function loadQuestion() {
+    const q = state.questions[state.currentQuestionIndex];
+    state.selectedOption = null;
+    state.hasAnswered = false;
+
+    qs('topicBadge').textContent = q.topic || 'Topic';
+    qs('difficultyBadge').textContent = q.difficulty || '';
+    qs('questionText').textContent = q.question || 'Question loading...';
+    qs('currentQ').textContent = state.currentQuestionIndex + 1;
+    qs('totalQ').textContent = state.questions.length;
+    qs('progressBar').style.width = ((state.currentQuestionIndex / state.questions.length) * 100) + '%';
+
+    const container = qs('optionsContainer');
+    container.innerHTML = '';
+
+    if (q.options && Array.isArray(q.options)) {
+        q.options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn w-full border-2 border-gray-200 rounded-xl p-4 text-left flex gap-3 bg-white';
+            btn.innerHTML = `<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600">${String.fromCharCode(65 + idx)}</span><span class="flex-1">${opt}</span>`;
+            btn.onclick = () => selectOption(idx, btn);
+            container.appendChild(btn);
+        });
+    }
+
+    qs('checkBtn').disabled = true;
+    qs('explainBtn').disabled = true;
+    qs('checkBtn').textContent = 'Check';
+    qs('checkBtn').onclick = checkAnswer;
+    qs('checkBtn').classList.remove('bg-green-600', 'bg-red-600');
+    qs('checkBtn').classList.add('bg-teal-600');
+}
+
+function selectOption(index, btn) {
+    if (state.hasAnswered) return;
+    state.selectedOption = index;
+
+    document.querySelectorAll('.option-btn').forEach(b => {
+        b.classList.remove('selected');
+        b.classList.add('bg-white', 'border-gray-200');
+        b.classList.remove('bg-teal-600', 'text-white', 'border-teal-600');
+    });
+
+    btn.classList.remove('bg-white', 'border-gray-200');
+    btn.classList.add('selected');
+
+    qs('checkBtn').disabled = false;
+}
+
+function checkAnswer() {
+    if (state.selectedOption === null || state.hasAnswered) return;
+    state.hasAnswered = true;
+
+    const q = state.questions[state.currentQuestionIndex];
+    const correct = parseInt(q.correct) || 0;
+    const isCorrect = state.selectedOption === correct;
+
+    document.querySelectorAll('.option-btn').forEach((btn, idx) => {
+        btn.disabled = true;
+        btn.classList.remove('selected');
+
+        if (idx === correct) {
+            btn.classList.add('correct');
+        } else if (idx === state.selectedOption && !isCorrect) {
+            btn.classList.add('wrong');
+        }
+    });
+
+    const checkBtn = qs('checkBtn');
+    if (isCorrect) {
+        state.correctAnswers++;
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        checkBtn.textContent = '✓ Correct!';
+        checkBtn.classList.remove('bg-teal-600');
+        checkBtn.classList.add('bg-green-600');
+    } else {
+        state.wrongAnswers++;
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+        checkBtn.textContent = '✗ Wrong';
+        checkBtn.classList.remove('bg-teal-600');
+        checkBtn.classList.add('bg-red-600');
+    }
+
+    qs('explainBtn').disabled = false;
+    checkBtn.onclick = nextQuestion;
+
+    setTimeout(() => {
+        checkBtn.classList.remove('bg-green-600', 'bg-red-600');
+        checkBtn.classList.add('bg-teal-600');
+        checkBtn.textContent = 'Next →';
+    }, 1000);
+}
+
+function showExplanation() {
+    const q = state.questions[state.currentQuestionIndex];
+    qs('explanationContent').innerHTML = `
+                <div class="mb-4">
+                    <p class="font-bold text-gray-900 mb-2">Question:</p>
+                    <p class="text-gray-600">${q.question || ''}</p>
+                </div>
+                <div class="mb-4">
+                    <p class="font-bold text-gray-900 mb-2">Correct Answer:</p>
+                    <p class="text-green-600 font-medium">${q.options ? q.options[q.correct] : ''}</p>
+                </div>
+                <div>
+                    <p class="font-bold text-gray-900 mb-2">Explanation:</p>
+                    <p class="text-gray-600 leading-relaxed">${q.explanation || 'No explanation provided.'}</p>
+                </div>
+            `;
+    switchView('explanation');
+}
+
+function backToQuiz() {
+    switchView('quiz');
+}
+
+async function nextQuestion() {
+    state.currentQuestionIndex++;
+
+    if (state.currentQuestionIndex >= state.questions.length) {
+        await finishQuiz();
+        return;
+    }
+
+    if (qs('explanationView').classList.contains('hidden')) {
+        loadQuestion();
+    } else {
+        switchView('quiz');
+        loadQuestion();
+    }
+}
+
+async function finishQuiz() {
+    const total = state.questions.length;
+    const accuracy = total > 0 ? Math.round((state.correctAnswers / total) * 100) : 0;
+    const points = state.correctAnswers * 10;
+
+    setLoading(true);
+    try {
+        await api('submit_quiz', {
+            results: {
+                topic: state.currentTopic,
+                correct: state.correctAnswers,
+                wrong: state.wrongAnswers,
+                total: total,
+                accuracy: accuracy,
+                questions: state.questions.map(q => q.id)
+            }
+        });
+        const auth = await api('auth', {
+            user: state.user
+        });
+        if (auth.success && auth.user) {
+            updateUserDisplay(auth.user);
+        }
+    } catch (e) {
+        console.error('submit error:', e);
+    }
+    setLoading(false);
+
+    qs('finalScore').textContent = state.correctAnswers + '/' + total;
+    qs('accuracyBar').style.width = accuracy + '%';
+    qs('accuracyText').textContent = accuracy + '% accuracy';
+    qs('correctCount').textContent = state.correctAnswers;
+    qs('wrongCount').textContent = state.wrongAnswers;
+    qs('pointsValue').textContent = points;
+    qs('pointsEarned').classList.remove('hidden');
+
+    let msg = 'Keep practicing!';
+    let icon = '🏆';
+    if (accuracy === 100) {
+        msg = 'Perfect score! Amazing!';
+        icon = '🌟';
+    } else if (accuracy >= 80) {
+        msg = 'Great job!';
+        icon = '🎉';
+    } else if (accuracy >= 60) {
+        msg = 'Good effort!';
+        icon = '👍';
+    } else {
+        msg = 'Keep practicing!';
+        icon = '💪';
+    }
+
+    qs('resultMessage').textContent = msg;
+    qs('resultIcon').textContent = icon;
+
+    if (accuracy >= 80) createConfetti();
+
+    switchView('results');
+}
+
+function createConfetti() {
+    const colors = ['#0D7377', '#14A085', '#FFD700', '#FF6B6B', '#4ECDC4'];
+    for (let i = 0; i < 50; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = Math.random() * 100 + 'vw';
+        c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        c.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 4000);
+    }
+}
+
+function retryQuiz() {
+    startQuiz(state.currentTopic);
+}
+
+// ================= NAVIGATION =================
+function switchView(view) {
+    console.log('Switching to:', view);
+
+    const allViews = ['homeView', 'quizView', 'explanationView', 'resultsView', 'profileView', 'leaderboardView', 'chatView'];
+
+    allViews.forEach(v => {
+        const el = document.getElementById(v);
+        if (el) {
+            el.classList.add('hidden');
+            if (v === 'chatView') el.classList.remove('flex');
+        }
+    });
+
+    const target = document.getElementById(view + 'View');
+    if (target) {
+        target.classList.remove('hidden');
+        if (view === 'chat') target.classList.add('flex');
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        const isActive = btn.dataset.view === view;
+        btn.classList.toggle('text-teal-600', isActive);
+        btn.classList.toggle('text-gray-400', !isActive);
+    });
+
+    if (view === 'profile') loadProfile();
+    if (view === 'leaderboard') loadLeaderboard();
+
+    if (view === 'chat') {
+
+    if (!hasChatLoadedOnce) {
+        setChatLocked(true); // 🔥 lock immediately
+
+        fakeChatLoading();
+
+        setTimeout(() => {
+            initChat();
+        }, 50);
+
+    } else {
+        initChat();
+    }
+}
+}
+function setChatLocked(locked) {
+    const input = qs('chatInput');
+    const btn = qs('sendBtn');
+
+    if (input) {
+        input.disabled = locked;
+        input.readOnly = locked;   // extra safety
+        input.blur();              // remove focus immediately
+    }
+
+    if (btn) btn.disabled = locked;
+}
+
+function goHome() {
+    switchView('home');
+}
+
+// ================= PROFILE =================
+async function loadProfile() {
+    try {
+        const data = await api('get_profile', {
+            telegram_id: state.telegramId
+        });
+        if (!data.success) return;
+
+        const u = data.user || {};
+        const totalQ = (u.total_correct || 0) + (u.total_wrong || 0);
+        qs('totalAnswered').textContent = totalQ;
+        qs('bestStreak').textContent = u.best_streak || 0;
+        qs('topicsCompleted').textContent = data.topics_completed || 0;
+        qs('accuracyRate').textContent = (data.accuracy || 0) + '%';
+        qs('profilePoints').textContent = u.xp || 0;
+
+        const achievements = [];
+        if ((u.streak || 0) >= 7) achievements.push({
+            icon: '🔥',
+            name: 'Week Warrior',
+            desc: '7 day streak'
+        });
+        if ((u.streak || 0) >= 30) achievements.push({
+            icon: '📅',
+            name: 'Monthly Master',
+            desc: '30 day streak'
+        });
+        if ((u.total_quizzes || 0) >= 10) achievements.push({
+            icon: '📚',
+            name: 'Quiz Taker',
+            desc: '10 quizzes completed'
+        });
+        if ((data.accuracy || 0) >= 90) achievements.push({
+            icon: '🎯',
+            name: 'Sharp Shooter',
+            desc: '90% accuracy'
+        });
+        if ((u.xp || 0) >= 1000) achievements.push({
+            icon: '💎',
+            name: 'Point Hoarder',
+            desc: '1000 XP earned'
+        });
+
+        if (achievements.length === 0) achievements.push({
+            icon: '🌱',
+            name: 'Getting Started',
+            desc: 'Complete your first quiz'
+        });
+
+        qs('achievementsList').innerHTML = achievements.map(a => `
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                        <span class="text-2xl">${a.icon}</span>
+                        <div>
+                            <p class="font-semibold text-sm">${a.name}</p>
+                            <p class="text-xs text-gray-500">${a.desc}</p>
+                        </div>
+                    </div>
+                `).join('');
+    } catch (e) {
+        console.error('loadProfile error:', e);
+    }
+}
+
+// ================= LEADERBOARD =================
+async function loadLeaderboard() {
+    try {
+        const data = await api('get_leaderboard');
+        if (!data.success) return;
+
+        const list = qs('leaderboardList');
+        let userRank = '--';
+        let userPoints = state.userStats ? (state.userStats.xp || 0) : 0;
+
+        if (data.leaderboard && Array.isArray(data.leaderboard)) {
+            data.leaderboard.forEach((u, i) => {
+                if (String(u.telegram_id) === String(state.telegramId)) userRank = '#' + (i + 1);
+            });
+
+            qs('userRank').textContent = userRank;
+            qs('userPoints').textContent = userPoints + ' pts';
+
+            list.innerHTML = data.leaderboard.slice(0, 20).map((u, i) => `
+                        <div class="flex items-center gap-4 p-4 ${String(u.telegram_id) === String(state.telegramId) ? 'bg-teal-50' : 'hover:bg-gray-50'}">
+                            <div class="w-8 text-center font-bold ${i < 3 ? 'text-yellow-600' : 'text-gray-400'}">
+                                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                            </div>
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${u.first_name || 'user'}" class="w-10 h-10 rounded-full bg-gray-100">
+                            <div class="flex-1">
+                                <p class="font-semibold text-sm ${String(u.telegram_id) === String(state.telegramId) ? 'text-teal-700' : 'text-gray-900'}">
+                                    ${u.first_name || 'User'} ${String(u.telegram_id) === String(state.telegramId) ? '(You)' : ''}
+                                </p>
+                                <p class="text-xs text-gray-500">@${u.username || 'user'}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-teal-600">${u.xp || 0}</p>
+                                <p class="text-xs text-gray-400">${u.streak || 0}🔥</p>
+                            </div>
+                        </div>
+                    `).join('');
+        }
+    } catch (e) {
+        console.error('loadLeaderboard error:', e);
+    }
+}
+
+// ================= NOTIFICATIONS =================
+function showNotifications() {
+    qs('notificationsPanel').classList.remove('hidden');
+}
+
+function hideNotifications() {
+    qs('notificationsPanel').classList.add('hidden');
+}
+
+function clearNotifications() {
+    qs('notificationsList').innerHTML = `
+                <div class="text-center py-8 text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                    </svg>
+                    <p class="text-sm">No notifications</p>
+                </div>
+            `;
+}
+
+// ================= START =================
+console.log('Script loaded, starting init...');
+init();

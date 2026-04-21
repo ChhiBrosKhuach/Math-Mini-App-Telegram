@@ -1,0 +1,2247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <title>MathBot Mini App</title>
+    
+    <!-- Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #F5F5F0;
+            color: #1C1C1E;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .card-shadow {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.02);
+        }
+        
+        .btn-press:active {
+            transform: scale(0.96);
+            transition: transform 0.1s;
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .option-btn {
+            transition: all 0.2s ease;
+            border: 2px solid #e5e7eb;
+            background: white;
+        }
+        
+        .option-btn.selected {
+            background-color: #0D7377;
+            color: white;
+            border-color: #0D7377;
+        }
+        
+        .option-btn.correct {
+            background-color: #14A085;
+            color: white;
+            border-color: #14A085;
+        }
+        
+        .option-btn.wrong {
+            background-color: #FF6B6B;
+            color: white;
+            border-color: #FF6B6B;
+        }
+        
+        .option-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .message-bubble {
+            animation: messagePop 0.3s ease-out;
+        }
+        
+        @keyframes messagePop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        .streak-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            animation: confetti-fall 3s ease-out forwards;
+            z-index: 9999;
+        }
+        
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        .notification-badge {
+            animation: badgePulse 2s infinite;
+        }
+        
+        @keyframes badgePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .topic-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .topic-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Chat specific */
+        #chatView {
+            display: none;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+        
+        #chatView.flex {
+            display: flex;
+        }
+        
+        #chatLoading {
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        
+        .safe-area-bottom {
+            padding-bottom: env(safe-area-inset-bottom, 12px);
+        }
+        
+        input, textarea, select {
+            font-size: 16px;
+            --webkit-appearance: none;
+            border-radius: 1rem;
+        }
+        
+        button {
+            --webkit-appearance: none;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        
+        button[type="button"] {
+            border-radius: 9999px;
+        }
+        
+        .katex-chat .katex {
+            font-size: 1em;
+            line-height: 1.2;
+        }
+        
+        .katex-chat .katex-display {
+            margin: 0.5em 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+        
+        .katex-chat .katex-display::-webkit-scrollbar {
+            height: 2px;
+        }
+        
+        .katex-chat .katex-display::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 2px;
+        }
+        
+        /* Username styles - NO GLOW EFFECTS */
+        .username-tap {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 2px 6px;
+            margin-left: -2px;
+            border-radius: 6px;
+            display: inline-block;
+            font-weight: 600;
+        }
+        
+        .username-tap:active {
+            transform: scale(0.95);
+        }
+        
+        .username-tapped {
+            color: #B45309;
+            background: rgba(251, 191, 36, 0.2);
+            font-weight: 700;
+        }
+        
+        .name-gradient {
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .name-clean {
+            color: #111827;
+            font-weight: 700;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+        
+        /* Prevent text selection on UI elements */
+        .no-select {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Improved loading bar */
+        .loading-bar-container {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 999px;
+            overflow: hidden;
+            height: 4px;
+        }
+        
+        .loading-bar {
+            height: 100%;
+            background: #0D7377;
+            transition: width 0.3s ease;
+            border-radius: 999px;
+        }
+    </style>
+</head>
+<body class="bg-cream">
+    
+    <!-- Loading State -->
+    <div id="loadingView" class="fixed inset-0 bg-[#F5F5F0] z-50 flex items-center justify-center">
+        <div class="text-center w-64 px-4">
+            <div class="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-gray-600 mb-3 font-medium">Loading MathBot...</p>
+            
+            <div class="loading-bar-container mb-2">
+                <div id="loadingBar" class="loading-bar" style="width: 0%"></div>
+            </div>
+            
+            <p id="loadingPercent" class="text-xs text-gray-400 mb-3">0%</p>
+            
+            <button onclick="forceShowApp()" class="text-xs text-teal-600 underline hover:text-teal-800 transition-colors">
+                Taking too long? Tap here
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="max-w-md mx-auto min-h-screen relative pb-20 flex flex-col hidden">
+        
+        <!-- Header -->
+        <header class="sticky top-0 z-40 bg-[#F5F5F0]/95 backdrop-blur-md px-4 py-3 flex justify-between items-center border-b border-gray-200/50">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-teal-700 flex items-center justify-center text-white font-bold text-lg no-select">∑</div>
+                <div>
+                    <p class="text-xs text-gray-500">Welcome back</p>
+                    <h1 class="font-bold text-lg leading-tight" id="userName">Hello!</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1 bg-orange-100 px-3 py-1.5 rounded-full no-select">
+                    <span class="text-lg">🔥</span>
+                    <span class="font-bold text-orange-600 text-sm streak-pulse" id="streakCount">0</span>
+                </div>
+                <button onclick="showNotifications()" class="relative w-10 h-10 rounded-full bg-white flex items-center justify-center card-shadow btn-press no-select" aria-label="Notifications">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span id="notifBadge" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center notification-badge hidden">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Notifications Panel -->
+        <div id="notificationsPanel" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onclick="hideNotifications()">
+            <div class="absolute top-16 right-4 w-80 bg-white rounded-2xl card-shadow max-h-96 overflow-hidden slide-in" onclick="event.stopPropagation()">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="font-bold">Messages</h3>
+                    <button onclick="clearNotifications()" class="text-xs text-teal-600 font-medium hover:text-teal-800">Clear All</button>
+                </div>
+                <div id="notificationsList" class="overflow-y-auto max-h-80 p-2 space-y-2">
+                    <div class="text-center py-8 text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                        <p class="text-sm">No notifications</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main id="mainContent" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+            
+            <!-- Home View -->
+            <div id="homeView" class="px-4 pt-2 fade-in overflow-y-auto flex-1">
+                
+                <!-- Tutorial -->
+                <div id="tutorialBox" class="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-4">
+                    <h3 class="font-bold text-blue-900">👋 Beginner Guide</h3>
+                    <p class="text-sm mt-1 text-blue-800 leading-relaxed">
+                        1. Choose a topic<br>
+                        2. Answer questions<br>
+                        3. Build streak 🔥<br>
+                        4. Check explanation to learn!
+                    </p>
+                    <button onclick="dismissTutorial()" class="mt-2 text-xs text-blue-600 font-medium hover:text-blue-800">Got it</button>
+                </div>
+
+                <!-- Group Chat Promo -->
+                <div onclick="switchView('chat')" class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 text-white mb-6 card-shadow cursor-pointer btn-press fade-in">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">💬</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold">Group Chat</h3>
+                            <p class="text-xs opacity-90 mt-0.5">Discuss math problems with learners</p>
+                        </div>
+                        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Admin Banner -->
+                <div id="adminBanner" class="hidden bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-4 text-white mb-4 card-shadow">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs font-medium opacity-80 mb-1">From Admin</p>
+                            <p class="text-sm font-medium" id="adminMessageText">New content available!</p>
+                        </div>
+                        <button onclick="dismissBanner()" class="text-white/60 hover:text-white btn-press p-1" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Daily Challenge -->
+                <div class="bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-5 text-white mb-6 card-shadow relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">🏆</span>
+                            <span class="font-semibold text-sm opacity-90">Daily Challenge</span>
+                            <span id="dailyCompleted" class="hidden bg-white/20 px-2 py-0.5 rounded text-xs">✓ Done</span>
+                        </div>
+                        <h2 class="text-xl font-bold mb-2">Challenge your skills!</h2>
+                        <p class="text-sm opacity-80 mb-4">Complete today's challenge to maintain your streak</p>
+                        <button onclick="startDailyChallenge()" id="dailyBtn" class="bg-white text-teal-700 px-6 py-2.5 rounded-xl font-semibold text-sm btn-press hover:bg-gray-50 transition-colors">
+                            Start Challenge →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Topics -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Choose Topic</h3>
+                    <span class="text-xs text-gray-500" id="questionCount">Loading...</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 mb-6" id="topicsGrid">
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                </div>
+
+                <!-- Recent Activity -->
+                <h3 class="font-bold text-lg mb-4">Recent Activity</h3>
+                <div class="space-y-3 pb-4" id="activityList">
+                    <div class="bg-white rounded-2xl p-4 card-shadow flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-xl text-blue-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-sm">Welcome to MathBot!</h4>
+                            <p class="text-xs text-gray-500">Start learning today</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz View -->
+            <div id="quizView" class="hidden px-4 pt-2 slide-in flex-1 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 sticky top-0 bg-[#F5F5F0] py-2 z-10">
+                    <button onclick="goHome()" class="p-2 -ml-2 rounded-full hover:bg-gray-200 btn-press transition-colors" aria-label="Back">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <div class="flex-1 mx-4">
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="progressBar" class="h-full bg-teal-600 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center text-xs text-gray-500 mt-1"><span id="currentQ">1</span>/<span id="totalQ">5</span></p>
+                    </div>
+                    <div class="w-10"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 card-shadow mb-4">
+                    <div class="flex items-center gap-2 mb-3 flex-wrap">
+                        <span class="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs font-semibold" id="topicBadge">Topic</span>
+                        <span class="text-xs text-gray-400" id="difficultyBadge"></span>
+                    </div>
+                    <h2 id="questionText" class="text-lg font-semibold mb-4 leading-relaxed">Question loading...</h2>
+                </div>
+
+                <div id="optionsContainer" class="space-y-3 mb-4"></div>
+
+                <div class="flex gap-3 sticky bottom-0 bg-[#F5F5F0] py-3">
+                    <button onclick="showExplanation()" id="explainBtn" class="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-semibold btn-press disabled:opacity-50 disabled:cursor-not-allowed transition-all" disabled>
+                        Explanation
+                    </button>
+                    <button onclick="checkAnswer()" id="checkBtn" class="flex-1 bg-teal-600 text-white py-3.5 rounded-xl font-semibold btn-press disabled:opacity-50 disabled:cursor-not-allowed transition-all" disabled>
+                        Check
+                    </button>
+                </div>
+            </div>
+
+            <!-- Explanation View -->
+            <div id="explanationView" class="hidden px-4 pt-2 slide-in flex-1 overflow-y-auto">
+                <div class="flex items-center gap-3 mb-4 sticky top-0 bg-[#F5F5F0] py-2 z-10">
+                    <button onclick="backToQuiz()" class="p-2 -ml-2 rounded-full hover:bg-gray-200 btn-press transition-colors" aria-label="Back">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h2 class="font-bold text-lg">Explanation</h2>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 card-shadow mb-4">
+                    <div id="explanationContent" class="text-gray-700 leading-relaxed"></div>
+                </div>
+
+                <button onclick="nextQuestion()" class="w-full bg-teal-600 text-white py-4 rounded-xl font-semibold btn-press mb-4 hover:bg-teal-700 transition-colors">
+                    Next Question →
+                </button>
+            </div>
+
+            <!-- Results View -->
+            <div id="resultsView" class="hidden px-4 pt-2 fade-in flex-1 overflow-y-auto">
+                <div class="text-center py-8">
+                    <div id="resultIcon" class="w-24 h-24 mx-auto bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-4xl mb-4 shadow-lg">
+                        🏆
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">Quiz Complete!</h2>
+                    <p class="text-gray-500" id="resultMessage">Great job!</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 card-shadow mb-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-gray-600">Score</span>
+                        <span class="text-2xl font-bold text-teal-600" id="finalScore">0/0</span>
+                    </div>
+                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div id="accuracyBar" class="h-full bg-teal-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p class="text-center text-sm text-gray-500 mt-2" id="accuracyText">0% accuracy</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-white rounded-2xl p-4 card-shadow text-center">
+                        <p class="text-2xl font-bold text-green-600" id="correctCount">0</p>
+                        <p class="text-xs text-gray-500">Correct</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-4 card-shadow text-center">
+                        <p class="text-2xl font-bold text-red-500" id="wrongCount">0</p>
+                        <p class="text-xs text-gray-500">Wrong</p>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-4 hidden" id="pointsEarned">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">💎</span>
+                        <div>
+                            <p class="font-bold text-yellow-800">+<span id="pointsValue">0</span> Points</p>
+                            <p class="text-xs text-yellow-600">Keep it up!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pb-4">
+                    <button onclick="retryQuiz()" class="w-full bg-teal-600 text-white py-4 rounded-xl font-semibold btn-press hover:bg-teal-700 transition-colors">
+                        Try Again ↻
+                    </button>
+                    <button onclick="goHome()" class="w-full bg-white text-gray-700 py-4 rounded-xl font-semibold card-shadow btn-press hover:bg-gray-50 transition-colors">
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profile View -->
+            <div id="profileView" class="hidden px-4 pt-2 fade-in flex-1 overflow-y-auto">
+                <div class="text-center py-6">
+                    <div class="w-20 h-20 mx-auto bg-gradient-to-br from-teal-600 to-teal-700 rounded-full flex items-center justify-center text-white text-3xl font-bold mb-3 shadow-md">
+                        <span id="profileInitial">U</span>
+                    </div>
+                    <h2 class="text-xl font-bold" id="profileName">User</h2>
+                    <p class="text-gray-500 text-sm" id="profileJoined">Joined recently</p>
+                    <div class="mt-3 inline-flex items-center gap-1 bg-teal-100 px-3 py-1 rounded-full">
+                        <span class="text-teal-700 font-bold" id="profilePoints">0</span>
+                        <span class="text-teal-600 text-xs">points</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 card-shadow mb-4">
+                    <h3 class="font-bold mb-4">Statistics</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <p class="text-2xl font-bold text-teal-600" id="totalAnswered">0</p>
+                            <p class="text-xs text-gray-500">Questions</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <p class="text-2xl font-bold text-orange-500" id="bestStreak">0</p>
+                            <p class="text-xs text-gray-500">Best Streak</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <p class="text-2xl font-bold text-purple-600" id="topicsCompleted">0</p>
+                            <p class="text-xs text-gray-500">Topics</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <p class="text-2xl font-bold text-blue-600" id="accuracyRate">0%</p>
+                            <p class="text-xs text-gray-500">Accuracy</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 card-shadow mb-4">
+                    <h3 class="font-bold mb-4">Achievements</h3>
+                    <div id="achievementsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Leaderboard View -->
+            <div id="leaderboardView" class="hidden px-4 pt-2 fade-in flex-1 overflow-y-auto">
+                <h2 class="font-bold text-xl mb-4">🏆 Leaderboard</h2>
+
+                <div class="bg-white rounded-2xl p-4 card-shadow mb-4">
+                    <div class="flex items-center gap-4 p-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl mb-3">
+                        <div class="text-2xl">🥇</div>
+                        <div class="flex-1">
+                            <p class="font-bold">You</p>
+                            <p class="text-xs text-gray-500">Current Rank</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-lg" id="userRank">#--</p>
+                            <p class="text-xs text-gray-500" id="userPoints">0 pts</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl card-shadow overflow-hidden mb-4">
+                    <div id="leaderboardList" class="divide-y divide-gray-100"></div>
+                </div>
+            </div>
+
+            <!-- Chat View -->
+            <div id="chatView" class="hidden flex-col flex-1 min-h-0 relative">
+                
+                <!-- Chat Header -->
+                <div class="bg-white/95 backdrop-blur-md px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0 sticky top-0 z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-sm">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-lg leading-tight">Math Group</h2>
+                            <p class="text-xs text-gray-500"><span id="chatUserCount">0</span> active today</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Loading Overlay -->
+                <div id="chatLoading" class="fixed inset-0 bg-[#F5F5F0] z-50 hidden items-center justify-center">
+                    <div class="w-64 text-center px-4">
+                        <p class="text-gray-600 mb-3 font-medium">Preparing chat...</p>
+                        <div class="loading-bar-container mb-2">
+                            <div id="chatLoadingBar" class="loading-bar" style="width: 0%"></div>
+                        </div>
+                        <p id="chatLoadingText" class="text-xs text-gray-400">0%</p>
+                    </div>
+                </div>
+
+                <!-- Messages Area -->
+                <div id="chatMessages" class="flex-1 overflow-y-auto px-4 py-4 space-y-1 min-h-0">
+                    <div class="text-center py-12 text-gray-400" id="chatEmptyState">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </div>
+                        <p class="text-sm font-medium">No messages yet</p>
+                        <p class="text-xs mt-1">Be the first to say hello!</p>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="bg-white border-t border-gray-100 px-4 py-3 flex-shrink-0 safe-area-bottom">
+                    <!-- Math Helper -->
+                    <div id="mathHelper" class="hidden mb-2 p-2 bg-gray-50 rounded-xl border border-gray-100">
+                        <p class="text-[10px] text-gray-500 font-medium mb-1.5">Format: <code class="bg-gray-200 px-1 rounded">$x^2$</code> for inline, <code class="bg-gray-200 px-1 rounded">$$\frac{1}{2}$$</code> for display</p>
+                        <div class="flex gap-1.5 flex-wrap">
+                            <button onclick="insertMath('x^2')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">x²</button>
+                            <button onclick="insertMath('\\sqrt{x}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">√x</button>
+                            <button onclick="insertMath('\\frac{a}{b}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">a/b</button>
+                            <button onclick="insertMath('\\sum_{i=1}^{n}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">∑</button>
+                            <button onclick="insertMath('\\int_{0}^{\\infty}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">∫</button>
+                            <button onclick="insertMath('\\theta')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">θ</button>
+                            <button onclick="insertMath('\\pi')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">π</button>
+                            <button onclick="insertMath('\\alpha')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">α</button>
+                            <button onclick="insertMath('\\beta')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 active:scale-95 transition-transform">β</button>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 items-end max-w-full">
+                        <button onclick="toggleMathHelper()" class="w-10 h-11 flex items-center justify-center text-gray-400 hover:text-teal-600 transition-colors mb-0.5 flex-shrink-0 rounded-xl active:scale-95" title="Math Helper" type="button">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+
+                        <div class="flex-1 min-w-0">
+                            <input type="text" id="chatInput" placeholder="Type a message... Use $x^2$ for math" maxlength="500" 
+                                class="w-full bg-gray-100 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 transition-all"
+                                onkeypress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }">
+                        </div>
+
+                        <button onclick="sendChatMessage()" id="sendBtn" class="w-11 h-11 rounded-full bg-teal-600 text-white flex items-center justify-center btn-press shadow-lg shadow-teal-600/30 disabled:opacity-40 disabled:shadow-none transition-all mb-0.5 flex-shrink-0 active:scale-95" type="button">
+                            <svg class="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- User Profile Modal (Fixed duplicate ID issue) -->
+        <div id="userProfileModal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-end" onclick="closeProfileOnBackdrop(event)">
+            <div class="bg-white w-full rounded-t-2xl p-5 slide-in max-w-md mx-auto" onclick="event.stopPropagation()">
+                <div class="flex items-center gap-3 mb-4">
+                    <div id="modalProfileAvatar" class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"></div>
+                    <div>
+                        <h3 id="modalProfileUsername" class="font-bold text-lg">User</h3>
+                        <p id="modalProfileSub" class="text-xs text-gray-500">Member</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 text-center mb-4">
+                    <div class="p-2 bg-gray-50 rounded-lg">
+                        <p class="font-bold text-teal-600" id="modalProfilePoints">0</p>
+                        <p class="text-xs text-gray-500">Points</p>
+                    </div>
+                    <div class="p-2 bg-gray-50 rounded-lg">
+                        <p class="font-bold text-teal-600" id="modalProfileMessages">0</p>
+                        <p class="text-xs text-gray-500">Messages</p>
+                    </div>
+                    <div class="p-2 bg-gray-50 rounded-lg">
+                        <p class="font-bold text-teal-600" id="modalProfileRank">--</p>
+                        <p class="text-xs text-gray-500">Rank</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="mentionUser()" class="flex-1 bg-teal-600 text-white py-3 rounded-xl font-semibold btn-press hover:bg-teal-700 transition-colors">
+                        @ Mention
+                    </button>
+                    <button onclick="openFullProfile()" class="flex-1 bg-gray-100 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors">
+                        View Profile
+                    </button>
+                </div>
+
+                <button onclick="closeProfile()" class="w-full mt-3 text-gray-400 text-sm py-2 hover:text-gray-600 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-around items-center max-w-md mx-auto z-40 safe-area-bottom">
+            <button onclick="switchView('home')" class="nav-btn flex flex-col items-center gap-1 text-teal-600 transition-colors p-2" data-view="home">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span class="text-xs font-medium">Home</span>
+            </button>
+            <button onclick="switchView('chat')" class="nav-btn flex flex-col items-center gap-1 text-gray-400 transition-colors p-2 relative" data-view="chat">
+                <div class="relative">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                    </svg>
+                    <span id="chatBadge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                </div>
+                <span class="text-xs font-medium">Chat</span>
+            </button>
+            <button onclick="switchView('leaderboard')" class="nav-btn flex flex-col items-center gap-1 text-gray-400 transition-colors p-2" data-view="leaderboard">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span class="text-xs font-medium">Rank</span>
+            </button>
+            <button onclick="switchView('profile')" class="nav-btn flex flex-col items-center gap-1 text-gray-400 transition-colors p-2" data-view="profile">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span class="text-xs font-medium">Profile</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // ================= CONFIG =================
+        const API_URL = 'https://khmerservice.online/math/api.php';
+        const MAX_CHAT_MESSAGES = 50;
+        const DEBOUNCE_DELAY = 300;
+        
+        // ================= STATE =================
+        const state = {
+            telegramId: null,
+            user: null,
+            questions: [],
+            currentQuestionIndex: 0,
+            selectedOption: null,
+            hasAnswered: false,
+            loading: false,
+            correctAnswers: 0,
+            wrongAnswers: 0,
+            currentTopic: null,
+            userStats: null
+        };
+
+        const chatState = {
+            isReady: false,
+            interval: null,
+            lastId: 0,
+            messagesCache: [],
+            hasLoadedOnce: false,
+            unreadCount: 0,
+            isLocked: true,
+            isInitialized: false,
+            selectedUser: null
+        };
+
+        // ================= UTILITIES =================
+        const qs = (id) => document.getElementById(id);
+        
+        const debounce = (func, wait) => {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        };
+
+        const escapeHtml = (text) => {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        const updateLoadingProgress = (percent) => {
+            const bar = qs('loadingBar');
+            const text = qs('loadingPercent');
+            if (bar) bar.style.width = percent + '%';
+            if (text) text.textContent = percent + '%';
+        };
+
+        const showError = (msg) => {
+            console.error('Error:', msg);
+            if (window.Telegram?.WebApp?.showAlert) {
+                window.Telegram.WebApp.showAlert(msg || 'Something went wrong');
+            } else {
+                alert(msg || 'Something went wrong');
+            }
+        };
+
+        const setLoading = (val) => {
+            state.loading = val;
+            const el = qs('loadingView');
+            if (el) el.classList.toggle('hidden', !val);
+        };
+
+        const forceShowApp = () => {
+            console.log('Force showing app...');
+            setLoading(false);
+            qs('app').classList.remove('hidden');
+            switchView('home');
+        };
+
+        // ================= API =================
+        async function api(action, data = {}) {
+            try {
+                const payload = {
+                    action,
+                    telegram_id: state.telegramId,
+                    ...data
+                };
+
+                console.log('API Request:', action, payload);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+
+                const json = await res.json();
+                console.log('API Response:', action, json);
+                return json;
+
+            } catch (e) {
+                console.error('API Error:', action, e);
+                return { success: false, error: e.message || 'Network error' };
+            }
+        }
+
+        // ================= CHAT FUNCTIONS =================
+        function getUserColor(id) {
+            const colors = [
+                'from-blue-500 to-blue-600',
+                'from-purple-500 to-purple-600',
+                'from-orange-500 to-orange-600',
+                'from-pink-500 to-pink-600',
+                'from-indigo-500 to-indigo-600',
+                'from-teal-500 to-teal-600',
+                'from-red-500 to-red-600',
+                'from-green-500 to-green-600'
+            ];
+            const num = parseInt(id) || 0;
+            return 'bg-gradient-to-br ' + colors[Math.abs(num) % colors.length];
+        }
+
+        function toggleMathHelper() {
+            const el = qs('mathHelper');
+            if (el) el.classList.toggle('hidden');
+        }
+
+        function insertMath(latex) {
+            const input = qs('chatInput');
+            if (!input) return;
+
+            const before = input.value.slice(0, input.selectionStart);
+            const after = input.value.slice(input.selectionEnd);
+            const wrapper = before.endsWith(' ') || before === '' ? '' : ' ';
+
+            input.value = before + wrapper + '$' + latex + '$ ' + after;
+            input.focus();
+
+            const newPos = (before + wrapper + '$' + latex + '$ ').length;
+            input.setSelectionRange(newPos, newPos);
+        }
+
+        function fakeChatLoading() {
+            const overlay = qs('chatLoading');
+            const bar = qs('chatLoadingBar');
+            const text = qs('chatLoadingText');
+
+            if (!overlay) return;
+
+            overlay.style.display = 'flex';
+            setChatLocked(true);
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 3;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                        setChatLocked(false);
+                        chatState.hasLoadedOnce = true;
+                    }, 200);
+                }
+                if (bar) bar.style.width = progress + '%';
+                if (text) text.textContent = progress + '%';
+            }, 60);
+        }
+
+        function setChatLocked(locked) {
+            chatState.isLocked = locked;
+            const input = qs('chatInput');
+            const btn = qs('sendBtn');
+            if (input) {
+                input.disabled = locked;
+                if (locked) input.blur();
+            }
+            if (btn) btn.disabled = locked;
+        }
+
+        // Optimized KaTeX rendering with cleanup
+        function renderMathText(text) {
+            if (!text || typeof window.katex === 'undefined') {
+                return escapeHtml(text).replace(/\n/g, '<br>');
+            }
+
+            const segments = [];
+            let remaining = text;
+            let lastIndex = 0;
+            
+            // Extract display math $$...$$
+            const displayRegex = /\$\$([\s\S]+?)\$\$/g;
+            let match;
+            
+            while ((match = displayRegex.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+                }
+                segments.push({ type: 'display', content: match[1].trim() });
+                lastIndex = match.index + match[0].length;
+            }
+            
+            if (lastIndex < text.length) {
+                segments.push({ type: 'text', content: text.slice(lastIndex) });
+            }
+
+            // Extract inline math from text segments
+            const finalSegments = [];
+            segments.forEach(seg => {
+                if (seg.type !== 'text') {
+                    finalSegments.push(seg);
+                    return;
+                }
+
+                const inlineRegex = /\$((?:\\\$|[^\$])+?)\$/g;
+                let txt = seg.content;
+                let idx = 0;
+                let m;
+
+                while ((m = inlineRegex.exec(txt)) !== null) {
+                    if (m.index > idx) {
+                        finalSegments.push({ type: 'text', content: txt.slice(idx, m.index) });
+                    }
+                    finalSegments.push({ type: 'inline', content: m[1].trim() });
+                    idx = m.index + m[0].length;
+                }
+                
+                if (idx < txt.length) {
+                    finalSegments.push({ type: 'text', content: txt.slice(idx) });
+                }
+            });
+
+            // Render segments
+            return finalSegments.map(seg => {
+                if (seg.type === 'text') {
+                    return escapeHtml(seg.content).replace(/\n/g, '<br>');
+                }
+                try {
+                    return window.katex.renderToString(seg.content, {
+                        throwOnError: false,
+                        displayMode: seg.type === 'display',
+                        strict: false,
+                        maxSize: 10,
+                        maxExpand: 100
+                    });
+                } catch (e) {
+                    return escapeHtml(seg.type === 'display' ? '$$' + seg.content + '$$' : '$' + seg.content + '$');
+                }
+            }).join('');
+        }
+
+        function formatChatTime(dateString) {
+            const d = new Date(dateString);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatChatDate(dateString) {
+            const d = new Date(dateString);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (d.toDateString() === today.toDateString()) return 'Today';
+            if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+
+        function getBadge(user) {
+            if (user.streak >= 30) return "🔥";
+            if (user.xp >= 1000) return "🏆";
+            if (user.xp >= 500) return "⭐";
+            return "";
+        }
+
+        function getNameStyle(user) {
+            if (user.xp >= 1000) return 'name-gradient';
+            return 'name-clean';
+        }
+
+        function tapUsername(el, name, userId) {
+            document.querySelectorAll('.username-tapped').forEach(e => {
+                if (e !== el) e.classList.remove('username-tapped');
+            });
+            el.classList.add('username-tapped');
+
+            chatState.selectedUser = { id: userId, name };
+            openUserProfile(chatState.selectedUser);
+
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            }
+        }
+
+        function openUserProfile(user) {
+            const modal = qs('userProfileModal');
+            if (!modal) return;
+            
+            modal.classList.remove('hidden');
+
+            const avatar = qs('modalProfileAvatar');
+            avatar.className = 'w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ' + getUserColor(user.id);
+            avatar.textContent = user.name.charAt(0).toUpperCase();
+
+            qs('modalProfileUsername').textContent = user.name;
+            qs('modalProfilePoints').textContent = Math.floor(Math.random() * 500);
+            qs('modalProfileMessages').textContent = Math.floor(Math.random() * 100);
+            qs('modalProfileRank').textContent = '#' + Math.floor(Math.random() * 50);
+        }
+
+        function closeProfile() {
+            const modal = qs('userProfileModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function closeProfileOnBackdrop(event) {
+            if (event.target === event.currentTarget) {
+                closeProfile();
+            }
+        }
+
+        function mentionUser() {
+            if (!chatState.selectedUser) return;
+            const input = qs('chatInput');
+            if (!input) return;
+
+            const mention = '@' + chatState.selectedUser.name.replace(/\s+/g, '_') + ' ';
+            input.value += mention;
+            input.focus();
+            closeProfile();
+        }
+
+        function openFullProfile() {
+            switchView('profile');
+            closeProfile();
+        }
+
+        async function initChat() {
+            if (!chatState.isInitialized) {
+                await loadChatMessages();
+                await loadChatStats();
+                chatState.isInitialized = true;
+            }
+
+            if (!chatState.hasLoadedOnce) return;
+
+            chatState.unreadCount = 0;
+            const badge = qs('chatBadge');
+            if (badge) badge.classList.add('hidden');
+
+            if (chatState.interval) clearInterval(chatState.interval);
+            chatState.interval = setInterval(() => {
+                const chatView = qs('chatView');
+                if (chatView && chatView.classList.contains('flex')) {
+                    pollChatMessages();
+                }
+            }, 5000);
+        }
+
+        async function loadChatMessages() {
+            try {
+                const data = await api('get_chat_messages', { limit: MAX_CHAT_MESSAGES });
+                if (data.success && Array.isArray(data.messages)) {
+                    chatState.messagesCache = data.messages.slice(-MAX_CHAT_MESSAGES);
+                    renderChatMessages();
+                }
+            } catch (e) {
+                console.error('loadChatMessages error:', e);
+            }
+        }
+
+        async function pollChatMessages() {
+            try {
+                const data = await api('get_chat_messages', { 
+                    limit: MAX_CHAT_MESSAGES, 
+                    after_id: chatState.lastId 
+                });
+                
+                if (!data.success || !Array.isArray(data.messages)) return;
+
+                const existingIds = new Set(chatState.messagesCache.map(m => parseInt(m.id)));
+                const newMsgs = data.messages.filter(m => !existingIds.has(parseInt(m.id)));
+
+                if (newMsgs.length > 0) {
+                    chatState.messagesCache.push(...newMsgs);
+
+                    if (chatState.messagesCache.length > MAX_CHAT_MESSAGES) {
+                        chatState.messagesCache = chatState.messagesCache.slice(-MAX_CHAT_MESSAGES);
+                    }
+
+                    renderChatMessages();
+
+                    const hasOthers = newMsgs.some(m => String(m.telegram_id) !== String(state.telegramId));
+                    if (hasOthers && window.Telegram?.WebApp?.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
+
+                    const chatView = qs('chatView');
+                    if (chatView && !chatView.classList.contains('flex')) {
+                        chatState.unreadCount += newMsgs.length;
+                        const badge = qs('chatBadge');
+                        if (badge) badge.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                console.error('pollChatMessages error:', e);
+            }
+        }
+
+        function renderChatMessages() {
+            const container = qs('chatMessages');
+            if (!container) return;
+
+            if (!chatState.messagesCache || chatState.messagesCache.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400 fade-in">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                        </div>
+                        <p class="text-sm font-medium">No messages yet</p>
+                        <p class="text-xs mt-1">Be the first to say hello!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            let lastDate = null;
+            let lastSender = null;
+
+            chatState.messagesCache.forEach((msg) => {
+                const msgDate = formatChatDate(msg.created_at);
+                const isNewDay = msgDate !== lastDate;
+
+                if (isNewDay) {
+                    html += `<div class="flex justify-center my-4"><span class="text-[10px] font-medium bg-gray-200/80 text-gray-500 px-3 py-1 rounded-full">${msgDate}</span></div>`;
+                    lastDate = msgDate;
+                    lastSender = null;
+                }
+
+                if (msg.type === 'system') {
+                    html += `<div class="flex justify-center my-2 message-bubble"><span class="text-[11px] text-gray-400 italic bg-gray-100/80 px-3 py-1 rounded-full border border-gray-100">${escapeHtml(msg.message)}</span></div>`;
+                    return;
+                }
+
+                const isMe = String(msg.telegram_id) === String(state.telegramId);
+                const time = formatChatTime(msg.created_at);
+                const initial = (msg.first_name || 'U').charAt(0).toUpperCase();
+                const colorClass = getUserColor(msg.telegram_id);
+                const showAvatar = !isMe && lastSender !== msg.telegram_id;
+                const userNameDisplay = escapeHtml(msg.first_name || 'User');
+                
+                const badge = getBadge(msg);
+                const styleClass = getNameStyle(msg);
+                const streak = msg.streak || 0;
+                const xp = msg.xp || 0;
+
+                const userNameHtml = `
+                    <div class="mb-1">
+                        <p class="username-tap ${styleClass}" 
+                           onclick="tapUsername(this, '${userNameDisplay}', '${msg.telegram_id}')"
+                           data-name="${userNameDisplay}" 
+                           data-id="${msg.telegram_id}">
+                           ${badge} ${userNameDisplay}
+                        </p>
+                        <div class="text-[10px] text-gray-400 flex gap-2 mt-0.5">
+                            <span>🔥 ${streak}</span>
+                            <span>⭐ ${xp}</span>
+                        </div>
+                    </div>
+                `;
+
+                html += `
+                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'} message-bubble mb-1">
+                        ${(!isMe && showAvatar) ? `<div class="w-8 h-8 rounded-full ${colorClass} flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0 shadow-sm mt-auto mb-5">${initial}</div>` : ''}
+                        ${(!isMe && !showAvatar) ? '<div class="w-8 mr-2 flex-shrink-0"></div>' : ''}
+                        
+                        <div class="max-w-[75%] min-w-0">
+                            ${(!isMe && showAvatar) ? userNameHtml : ''}
+                            <div class="${isMe ? 'bg-teal-600 text-white rounded-2xl rounded-tr-sm' : 'bg-white text-gray-800 rounded-2xl rounded-tl-sm'} px-4 py-2.5 shadow-sm break-words">
+                                <p class="text-[13px] leading-relaxed katex-chat">${renderMathText(msg.message)}</p>
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-0.5 ${isMe ? 'text-right mr-1' : 'text-left ml-1'}">${time}</p>
+                        </div>
+                    </div>
+                `;
+
+                lastSender = msg.telegram_id;
+            });
+
+            container.innerHTML = html;
+
+            // Auto-scroll to bottom
+            requestAnimationFrame(() => {
+                container.scrollTop = container.scrollHeight;
+            });
+
+            if (chatState.messagesCache.length > 0) {
+                chatState.lastId = Math.max(...chatState.messagesCache.map(m => parseInt(m.id) || 0));
+            }
+        }
+
+        const debouncedSendMessage = debounce(async () => {
+            const input = qs('chatInput');
+            const text = input ? input.value.trim() : '';
+            if (!text || text.length > 500) return;
+
+            if (!state.telegramId) {
+                showError('Not authenticated');
+                return;
+            }
+
+            if (input) input.value = '';
+            const btn = qs('sendBtn');
+            if (btn) btn.disabled = true;
+
+            const tempId = 'temp_' + Date.now();
+            const tempMsg = {
+                id: tempId,
+                telegram_id: state.telegramId,
+                first_name: state.user?.first_name || 'You',
+                message: text,
+                created_at: new Date().toISOString(),
+                type: 'text',
+                xp: state.userStats?.xp || 0,
+                streak: state.userStats?.streak || 0
+            };
+            
+            chatState.messagesCache.push(tempMsg);
+            if (chatState.messagesCache.length > MAX_CHAT_MESSAGES) {
+                chatState.messagesCache = chatState.messagesCache.slice(-MAX_CHAT_MESSAGES);
+            }
+            renderChatMessages();
+
+            try {
+                const data = await api('send_chat_message', {
+                    telegram_id: state.telegramId,
+                    message: text,
+                    first_name: state.user?.first_name || 'User',
+                    username: state.user?.username || null
+                });
+
+                if (data.success) {
+                    await loadChatMessages();
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                    }
+                } else {
+                    chatState.messagesCache = chatState.messagesCache.filter(m => String(m.id) !== tempId);
+                    renderChatMessages();
+                    showError(data.error || 'Failed to send message');
+                }
+            } catch (e) {
+                console.error('sendChatMessage error:', e);
+                chatState.messagesCache = chatState.messagesCache.filter(m => String(m.id) !== tempId);
+                renderChatMessages();
+            }
+
+            if (btn) btn.disabled = false;
+        }, DEBOUNCE_DELAY);
+
+        function sendChatMessage() {
+            debouncedSendMessage();
+        }
+
+        async function loadChatStats() {
+            try {
+                const data = await api('get_chat_stats');
+                if (data.success && data.stats) {
+                    const el = qs('chatUserCount');
+                    if (el) el.textContent = data.stats.users || 0;
+                }
+            } catch (e) {
+                console.log('Stats load failed', e);
+            }
+        }
+
+        // ================= INIT =================
+        async function init() {
+            console.log('INIT START');
+            updateLoadingProgress(5);
+
+            // Safety timeout
+            setTimeout(() => {
+                const loading = qs('loadingView');
+                if (loading && !loading.classList.contains('hidden')) {
+                    console.log('Safety timeout triggered');
+                    forceShowApp();
+                }
+            }, 8000);
+
+            try {
+                // Step 1: Telegram user
+                updateLoadingProgress(15);
+                const tg = window.Telegram?.WebApp;
+                
+                if (tg?.initDataUnsafe?.user) {
+                    state.user = tg.initDataUnsafe.user;
+                    state.telegramId = state.user.id;
+                    
+                    qs('userName').textContent = state.user.first_name;
+                    qs('profileName').textContent = state.user.first_name + (state.user.last_name ? ' ' + state.user.last_name : '');
+                    qs('profileInitial').textContent = state.user.first_name.charAt(0).toUpperCase();
+                    
+                    tg.expand();
+                    tg.ready();
+                } else {
+                    // Demo mode
+                    state.telegramId = 'demo_' + Date.now();
+                    state.user = {
+                        id: state.telegramId,
+                        first_name: 'Demo User',
+                        username: 'demo'
+                    };
+                    
+                    qs('userName').textContent = 'Demo User';
+                    qs('profileName').textContent = 'Demo User';
+                    qs('profileInitial').textContent = 'D';
+                }
+
+                // Step 2: Auth
+                updateLoadingProgress(35);
+                try {
+                    const auth = await api('auth', { user: state.user });
+                    if (auth.success && auth.user) {
+                        updateUserDisplay(auth.user);
+                    }
+                } catch (e) {
+                    console.error('Auth error:', e);
+                }
+
+                // Step 3: Load topics
+                updateLoadingProgress(60);
+                try {
+                    await loadTopics();
+                } catch (e) {
+                    console.error('Topics error:', e);
+                }
+
+                // Step 4: Preload chat
+                updateLoadingProgress(80);
+                try {
+                    const chatContainer = qs('chatMessages');
+                    if (chatContainer) {
+                        chatContainer.innerHTML = `
+                            <div class="space-y-2 p-4">
+                                <div class="h-12 bg-gray-200 rounded-xl skeleton w-3/4"></div>
+                                <div class="h-12 bg-gray-200 rounded-xl skeleton w-1/2 ml-auto"></div>
+                                <div class="h-12 bg-gray-200 rounded-xl skeleton w-2/3"></div>
+                            </div>
+                        `;
+                    }
+                    await loadChatMessages();
+                    await loadChatStats();
+                    chatState.isReady = true;
+                } catch (e) {
+                    console.log('Chat preload failed', e);
+                }
+
+                                updateLoadingProgress(100);
+                
+                // Show app
+                qs('loadingView').classList.add('hidden');
+                qs('app').classList.remove('hidden');
+                
+                // Init chat polling
+                initChat();
+                
+                // Load leaderboard data
+                try {
+                    await loadLeaderboard();
+                } catch (e) {
+                    console.log('Leaderboard load failed', e);
+                }
+
+                // Check notifications
+                try {
+                    await loadNotifications();
+                } catch (e) {
+                    console.log('Notifications load failed', e);
+                }
+
+                console.log('INIT COMPLETE');
+
+            } catch (e) {
+                console.error('Fatal init error:', e);
+                showError('Failed to initialize app. Please restart.');
+                forceShowApp();
+            }
+        }
+
+        // ================= USER & STATS =================
+        function updateUserDisplay(userData) {
+            if (!userData) return;
+            
+            state.userStats = userData;
+            
+            // Update streak
+            const streakEl = qs('streakCount');
+            if (streakEl && userData.streak) {
+                streakEl.textContent = userData.streak;
+            }
+            
+            // Update points in profile
+            const pointsEl = qs('profilePoints');
+            if (pointsEl && userData.xp) {
+                pointsEl.textContent = userData.xp;
+            }
+            
+            // Update stats
+            const totalAnswered = qs('totalAnswered');
+            if (totalAnswered && userData.total_answered) {
+                totalAnswered.textContent = userData.total_answered;
+            }
+            
+            const bestStreak = qs('bestStreak');
+            if (bestStreak && userData.best_streak) {
+                bestStreak.textContent = userData.best_streak;
+            }
+            
+            const accuracyRate = qs('accuracyRate');
+            if (accuracyRate && userData.accuracy !== undefined) {
+                accuracyRate.textContent = userData.accuracy + '%';
+            }
+            
+            const topicsCompleted = qs('topicsCompleted');
+            if (topicsCompleted && userData.topics_completed) {
+                topicsCompleted.textContent = userData.topics_completed;
+            }
+        }
+
+        // ================= TOPICS =================
+        async function loadTopics() {
+            try {
+                const data = await api('get_topics');
+                const grid = qs('topicsGrid');
+                const countEl = qs('questionCount');
+                
+                if (!data.success || !Array.isArray(data.topics)) {
+                    throw new Error('Invalid topics data');
+                }
+                
+                if (countEl) {
+                    countEl.textContent = data.total_questions + ' questions';
+                }
+                
+                if (!grid) return;
+                
+                grid.innerHTML = data.topics.map(topic => `
+                    <div onclick="startTopic('${escapeHtml(topic.id)}', '${escapeHtml(topic.name)}')" 
+                         class="topic-card bg-white rounded-2xl p-4 cursor-pointer btn-press card-shadow">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${topic.color || 'from-teal-500 to-teal-600'} flex items-center justify-center text-white text-lg mb-3">
+                            ${topic.icon || '📐'}
+                        </div>
+                        <h4 class="font-bold text-sm mb-1">${escapeHtml(topic.name)}</h4>
+                        <p class="text-xs text-gray-500">${topic.question_count || 0} questions</p>
+                        ${topic.progress ? `
+                            <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-teal-500 rounded-full" style="width: ${topic.progress}%"></div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+                
+            } catch (e) {
+                console.error('loadTopics error:', e);
+                const grid = qs('topicsGrid');
+                if (grid) {
+                    grid.innerHTML = `
+                        <div class="col-span-2 text-center py-8 text-gray-400">
+                            <p class="text-sm">Failed to load topics</p>
+                            <button onclick="loadTopics()" class="mt-2 text-teal-600 text-sm font-medium">Retry</button>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function startTopic(topicId, topicName) {
+            state.currentTopic = { id: topicId, name: topicName };
+            loadQuestions(topicId);
+        }
+
+        async function loadQuestions(topicId) {
+            setLoading(true);
+            
+            try {
+                const data = await api('get_questions', { topic_id: topicId, limit: 5 });
+                
+                if (!data.success || !Array.isArray(data.questions) || data.questions.length === 0) {
+                    showError('No questions available for this topic');
+                    setLoading(false);
+                    return;
+                }
+                
+                state.questions = data.questions;
+                state.currentQuestionIndex = 0;
+                state.correctAnswers = 0;
+                state.wrongAnswers = 0;
+                state.selectedOption = null;
+                state.hasAnswered = false;
+                
+                switchView('quiz');
+                renderQuestion();
+                
+            } catch (e) {
+                console.error('loadQuestions error:', e);
+                showError('Failed to load questions');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // ================= QUIZ =================
+        function renderQuestion() {
+            const question = state.questions[state.currentQuestionIndex];
+            if (!question) return;
+            
+            // Update progress
+            const currentQ = qs('currentQ');
+            const totalQ = qs('totalQ');
+            const progressBar = qs('progressBar');
+            
+            if (currentQ) currentQ.textContent = state.currentQuestionIndex + 1;
+            if (totalQ) totalQ.textContent = state.questions.length;
+            if (progressBar) {
+                progressBar.style.width = ((state.currentQuestionIndex / state.questions.length) * 100) + '%';
+            }
+            
+            // Update badges
+            const topicBadge = qs('topicBadge');
+            const difficultyBadge = qs('difficultyBadge');
+            
+            if (topicBadge) topicBadge.textContent = state.currentTopic?.name || 'Quiz';
+            if (difficultyBadge) {
+                const diff = question.difficulty || 'medium';
+                const diffColors = {
+                    easy: 'text-green-600 bg-green-50',
+                    medium: 'text-yellow-600 bg-yellow-50',
+                    hard: 'text-red-600 bg-red-50'
+                };
+                difficultyBadge.className = `text-xs px-2 py-1 rounded-full font-medium ${diffColors[diff] || diffColors.medium}`;
+                difficultyBadge.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
+            }
+            
+            // Render question text with math support
+            const questionText = qs('questionText');
+            if (questionText) {
+                questionText.innerHTML = renderMathText(question.question);
+            }
+            
+            // Render options
+            const optionsContainer = qs('optionsContainer');
+            if (optionsContainer && Array.isArray(question.options)) {
+                optionsContainer.innerHTML = question.options.map((opt, idx) => `
+                    <button onclick="selectOption(${idx})" 
+                            class="option-btn w-full text-left p-4 rounded-xl font-medium text-sm transition-all btn-press"
+                            data-index="${idx}">
+                        <span class="inline-block w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs flex items-center justify-center mr-2 font-bold">${String.fromCharCode(65 + idx)}</span>
+                        ${renderMathText(opt)}
+                    </button>
+                `).join('');
+            }
+            
+            // Reset buttons
+            state.selectedOption = null;
+            state.hasAnswered = false;
+            
+            const checkBtn = qs('checkBtn');
+            const explainBtn = qs('explainBtn');
+            
+            if (checkBtn) {
+                checkBtn.disabled = true;
+                checkBtn.textContent = 'Check';
+                checkBtn.className = 'flex-1 bg-teal-600 text-white py-3.5 rounded-xl font-semibold btn-press disabled:opacity-50 disabled:cursor-not-allowed transition-all';
+            }
+            if (explainBtn) {
+                explainBtn.disabled = true;
+                explainBtn.className = 'flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-semibold btn-press disabled:opacity-50 disabled:cursor-not-allowed transition-all';
+            }
+        }
+
+        function selectOption(index) {
+            if (state.hasAnswered) return;
+            
+            state.selectedOption = index;
+            
+            // Update visual selection
+            document.querySelectorAll('.option-btn').forEach((btn, idx) => {
+                if (idx === index) {
+                    btn.classList.add('selected');
+                } else {
+                    btn.classList.remove('selected');
+                }
+            });
+            
+            // Enable check button
+            const checkBtn = qs('checkBtn');
+            if (checkBtn) checkBtn.disabled = false;
+            
+            // Haptic feedback
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.selectionChanged();
+            }
+        }
+
+        function checkAnswer() {
+            if (state.hasAnswered || state.selectedOption === null) return;
+            
+            state.hasAnswered = true;
+            const question = state.questions[state.currentQuestionIndex];
+            const isCorrect = state.selectedOption === question.correct_index;
+            
+            // Update UI
+            document.querySelectorAll('.option-btn').forEach((btn, idx) => {
+                btn.disabled = true;
+                if (idx === question.correct_index) {
+                    btn.classList.add('correct');
+                } else if (idx === state.selectedOption && !isCorrect) {
+                    btn.classList.add('wrong');
+                }
+            });
+            
+            // Update stats
+            if (isCorrect) {
+                state.correctAnswers++;
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+            } else {
+                state.wrongAnswers++;
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                }
+            }
+            
+            // Update buttons
+            const checkBtn = qs('checkBtn');
+            const explainBtn = qs('explainBtn');
+            
+            if (checkBtn) {
+                checkBtn.textContent = isCorrect ? '✓ Correct' : '✗ Wrong';
+                checkBtn.className = isCorrect 
+                    ? 'flex-1 bg-green-500 text-white py-3.5 rounded-xl font-semibold btn-press transition-all'
+                    : 'flex-1 bg-red-500 text-white py-3.5 rounded-xl font-semibold btn-press transition-all';
+            }
+            if (explainBtn) explainBtn.disabled = false;
+            
+            // Report to API
+            api('submit_answer', {
+                question_id: question.id,
+                correct: isCorrect,
+                topic_id: state.currentTopic?.id
+            }).catch(e => console.error('Submit answer error:', e));
+        }
+
+        function showExplanation() {
+            const question = state.questions[state.currentQuestionIndex];
+            if (!question?.explanation) return;
+            
+            const explanationContent = qs('explanationContent');
+            if (explanationContent) {
+                explanationContent.innerHTML = renderMathText(question.explanation);
+            }
+            
+            switchView('explanation');
+        }
+
+        function backToQuiz() {
+            switchView('quiz');
+        }
+
+        function nextQuestion() {
+            state.currentQuestionIndex++;
+            
+            if (state.currentQuestionIndex >= state.questions.length) {
+                showResults();
+            } else {
+                renderQuestion();
+            }
+        }
+
+        function showResults() {
+            const total = state.questions.length;
+            const correct = state.correctAnswers;
+            const wrong = state.wrongAnswers;
+            const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+            
+            // Update UI
+            const finalScore = qs('finalScore');
+            const accuracyText = qs('accuracyText');
+            const accuracyBar = qs('accuracyBar');
+            const correctCount = qs('correctCount');
+            const wrongCount = qs('wrongCount');
+            const resultMessage = qs('resultMessage');
+            const resultIcon = qs('resultIcon');
+            const pointsEarned = qs('pointsEarned');
+            const pointsValue = qs('pointsValue');
+            
+            if (finalScore) finalScore.textContent = `${correct}/${total}`;
+            if (accuracyText) accuracyText.textContent = `${accuracy}% accuracy`;
+            if (accuracyBar) accuracyBar.style.width = accuracy + '%';
+            if (correctCount) correctCount.textContent = correct;
+            if (wrongCount) wrongCount.textContent = wrong;
+            
+            // Result message and icon
+            let message = 'Good job!';
+            let icon = '🏆';
+            let colors = 'from-yellow-400 to-orange-500';
+            
+            if (accuracy === 100) {
+                message = 'Perfect score! Amazing!';
+                icon = '🌟';
+                colors = 'from-yellow-300 to-yellow-500';
+                triggerConfetti();
+            } else if (accuracy >= 80) {
+                message = 'Great work! Almost perfect!';
+                icon = '🎉';
+                colors = 'from-green-400 to-teal-500';
+            } else if (accuracy >= 60) {
+                message = 'Good effort! Keep practicing!';
+                icon = '👍';
+                colors = 'from-blue-400 to-indigo-500';
+            } else {
+                message = 'Keep practicing! You\'ll improve!';
+                icon = '💪';
+                colors = 'from-orange-400 to-red-500';
+            }
+            
+            if (resultMessage) resultMessage.textContent = message;
+            if (resultIcon) {
+                resultIcon.textContent = icon;
+                resultIcon.className = `w-24 h-24 mx-auto rounded-full flex items-center justify-center text-4xl mb-4 shadow-lg bg-gradient-to-br ${colors}`;
+            }
+            
+            // Points
+            const earned = correct * 10 + (accuracy === 100 ? 50 : 0);
+            if (pointsEarned && pointsValue) {
+                if (earned > 0) {
+                    pointsEarned.classList.remove('hidden');
+                    pointsValue.textContent = earned;
+                } else {
+                    pointsEarned.classList.add('hidden');
+                }
+            }
+            
+            // Update profile stats
+            api('get_user_stats').then(data => {
+                if (data.success) updateUserDisplay(data.stats);
+            }).catch(console.error);
+            
+            switchView('results');
+        }
+
+        function retryQuiz() {
+            if (state.currentTopic) {
+                startTopic(state.currentTopic.id, state.currentTopic.name);
+            } else {
+                goHome();
+            }
+        }
+
+        // ================= DAILY CHALLENGE =================
+        async function startDailyChallenge() {
+            setLoading(true);
+            
+            try {
+                const data = await api('get_daily_challenge');
+                
+                if (!data.success || !Array.isArray(data.questions)) {
+                    showError('Daily challenge not available');
+                    setLoading(false);
+                    return;
+                }
+                
+                state.questions = data.questions;
+                state.currentQuestionIndex = 0;
+                state.correctAnswers = 0;
+                state.wrongAnswers = 0;
+                state.selectedOption = null;
+                state.hasAnswered = false;
+                state.currentTopic = { id: 'daily', name: 'Daily Challenge' };
+                
+                switchView('quiz');
+                renderQuestion();
+                
+            } catch (e) {
+                console.error('Daily challenge error:', e);
+                showError('Failed to load daily challenge');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // ================= LEADERBOARD =================
+        async function loadLeaderboard() {
+            try {
+                const data = await api('get_leaderboard');
+                if (!data.success || !Array.isArray(data.leaders)) return;
+                
+                const list = qs('leaderboardList');
+                const userRank = qs('userRank');
+                const userPoints = qs('userPoints');
+                
+                if (userRank && data.user_rank) userRank.textContent = '#' + data.user_rank;
+                if (userPoints && data.user_points) userPoints.textContent = data.user_points + ' pts';
+                
+                if (!list) return;
+                
+                const medals = ['🥇', '🥈', '🥉'];
+                
+                list.innerHTML = data.leaders.map((leader, idx) => `
+                    <div class="flex items-center gap-3 p-3 ${leader.is_me ? 'bg-teal-50' : ''}">
+                        <div class="w-8 text-center font-bold ${idx < 3 ? 'text-lg' : 'text-sm text-gray-400'}">
+                            ${medals[idx] || (idx + 1)}
+                        </div>
+                        <div class="w-10 h-10 rounded-full ${getUserColor(leader.telegram_id)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                            ${(leader.first_name || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm truncate ${leader.is_me ? 'text-teal-700' : ''}">${escapeHtml(leader.first_name || 'User')}</p>
+                            <p class="text-xs text-gray-500">${leader.streak || 0} day streak</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-sm ${leader.is_me ? 'text-teal-600' : 'text-gray-700'}">${leader.xp || 0}</p>
+                            <p class="text-xs text-gray-400">pts</p>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (e) {
+                console.error('Leaderboard error:', e);
+            }
+        }
+
+        // ================= NOTIFICATIONS =================
+        async function loadNotifications() {
+            try {
+                const data = await api('get_notifications');
+                if (!data.success || !Array.isArray(data.notifications)) return;
+                
+                const badge = qs('notifBadge');
+                const list = qs('notificationsList');
+                
+                const unread = data.notifications.filter(n => !n.read).length;
+                
+                if (badge) {
+                    if (unread > 0) {
+                        badge.textContent = unread > 9 ? '9+' : unread;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+                
+                if (!list) return;
+                
+                if (data.notifications.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-8 text-gray-400">
+                            <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <p class="text-sm">No notifications</p>
+                        </div>
+                    `;
+                } else {
+                    list.innerHTML = data.notifications.map(notif => `
+                        <div class="p-3 rounded-xl ${notif.read ? 'bg-gray-50' : 'bg-blue-50 border border-blue-100'} flex items-start gap-3 cursor-pointer" onclick="markRead(${notif.id})">
+                            <div class="w-8 h-8 rounded-full ${notif.read ? 'bg-gray-200' : 'bg-blue-500'} flex items-center justify-center text-white text-xs flex-shrink-0">
+                                ${notif.type === 'achievement' ? '🏆' : notif.type === 'streak' ? '🔥' : '📢'}
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium ${notif.read ? 'text-gray-600' : 'text-gray-900'}">${escapeHtml(notif.title)}</p>
+                                <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(notif.message)}</p>
+                                <p class="text-[10px] text-gray-400 mt-1">${formatChatTime(notif.created_at)}</p>
+                            </div>
+                            ${!notif.read ? '<div class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>' : ''}
+                        </div>
+                    `).join('');
+                }
+                
+            } catch (e) {
+                console.error('Notifications error:', e);
+            }
+        }
+
+        function showNotifications() {
+            const panel = qs('notificationsPanel');
+            if (panel) panel.classList.remove('hidden');
+            loadNotifications();
+        }
+
+        function hideNotifications() {
+            const panel = qs('notificationsPanel');
+            if (panel) panel.classList.add('hidden');
+        }
+
+        function clearNotifications() {
+            api('clear_notifications').then(() => {
+                loadNotifications();
+            }).catch(console.error);
+        }
+
+        function markRead(id) {
+            api('mark_read', { notification_id: id }).then(() => {
+                loadNotifications();
+            }).catch(console.error);
+        }
+
+        // ================= ACHIEVEMENTS =================
+        function loadAchievements() {
+            const list = qs('achievementsList');
+            if (!list) return;
+            
+            const achievements = [
+                { id: 'first_steps', name: 'First Steps', desc: 'Answer your first question', icon: '👣', unlocked: state.userStats?.total_answered > 0 },
+                { id: 'on_fire', name: 'On Fire', desc: 'Maintain a 7-day streak', icon: '🔥', unlocked: (state.userStats?.streak || 0) >= 7 },
+                { id: 'perfectionist', name: 'Perfectionist', desc: 'Get 100% on a quiz', icon: '💯', unlocked: false },
+                { id: 'math_wizard', name: 'Math Wizard', desc: 'Earn 1000 points', icon: '🧙', unlocked: (state.userStats?.xp || 0) >= 1000 },
+                { id: 'topic_master', name: 'Topic Master', desc: 'Complete all topics', icon: '📚', unlocked: false }
+            ];
+            
+            list.innerHTML = achievements.map(ach => `
+                <div class="flex items-center gap-3 p-3 rounded-xl ${ach.unlocked ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' : 'bg-gray-50 opacity-60'}">
+                    <div class="w-10 h-10 rounded-full ${ach.unlocked ? 'bg-yellow-400' : 'bg-gray-300'} flex items-center justify-center text-xl flex-shrink-0">
+                        ${ach.icon}
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-sm ${ach.unlocked ? 'text-gray-900' : 'text-gray-500'}">${ach.name}</p>
+                        <p class="text-xs text-gray-500">${ach.desc}</p>
+                    </div>
+                    ${ach.unlocked ? '<span class="text-yellow-500 text-lg">✓</span>' : '<span class="text-gray-300 text-lg">🔒</span>'}
+                </div>
+            `).join('');
+        }
+
+        // ================= VIEW MANAGEMENT =================
+        function switchView(viewName) {
+            // Hide all views
+            const views = ['homeView', 'quizView', 'explanationView', 'resultsView', 'profileView', 'leaderboardView', 'chatView'];
+            views.forEach(v => {
+                const el = qs(v);
+                if (el) el.classList.add('hidden');
+            });
+            
+            // Show target view
+            const target = qs(viewName + 'View');
+            if (target) {
+                target.classList.remove('hidden');
+                if (viewName === 'chat') {
+                    target.classList.add('flex');
+                }
+            }
+            
+            // Update nav
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const isActive = btn.dataset.view === viewName;
+                btn.classList.toggle('text-teal-600', isActive);
+                btn.classList.toggle('text-gray-400', !isActive);
+            });
+            
+            // Special handling
+            if (viewName === 'chat') {
+                if (!chatState.hasLoadedOnce) {
+                    fakeChatLoading();
+                } else {
+                    initChat();
+                    // Scroll to bottom
+                    const container = qs('chatMessages');
+                    if (container) {
+                        setTimeout(() => {
+                            container.scrollTop = container.scrollHeight;
+                        }, 100);
+                    }
+                }
+            }
+            
+            if (viewName === 'profile') {
+                loadAchievements();
+            }
+            
+            if (viewName === 'leaderboard') {
+                loadLeaderboard();
+            }
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        function goHome() {
+            switchView('home');
+        }
+
+        // ================= TUTORIAL & BANNER =================
+        function dismissTutorial() {
+            const box = qs('tutorialBox');
+            if (box) box.classList.add('hidden');
+            localStorage.setItem('mathbot_tutorial_dismissed', 'true');
+        }
+
+        function dismissBanner() {
+            const banner = qs('adminBanner');
+            if (banner) banner.classList.add('hidden');
+        }
+
+        // ================= CONFETTI =================
+        function triggerConfetti() {
+            const colors = ['#0D7377', '#14A085', '#FF6B6B', '#FCD34D', '#8B5CF6', '#EC4899'];
+            
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    confetti.style.width = (Math.random() * 10 + 5) + 'px';
+                    confetti.style.height = (Math.random() * 10 + 5) + 'px';
+                    confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                    document.body.appendChild(confetti);
+                    
+                    setTimeout(() => confetti.remove(), 4000);
+                }, i * 30);
+            }
+        }
+
+        // ================= ACTIVITY =================
+        function addActivity(type, title, subtitle) {
+            const list = qs('activityList');
+            if (!list) return;
+            
+            const icons = {
+                quiz: { bg: 'bg-teal-100', text: 'text-teal-600', svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />' },
+                streak: { bg: 'bg-orange-100', text: 'text-orange-600', svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />' },
+                topic: { bg: 'bg-blue-100', text: 'text-blue-600', svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />' }
+            };
+            
+            const icon = icons[type] || icons.quiz;
+            
+            const item = document.createElement('div');
+            item.className = 'bg-white rounded-2xl p-4 card-shadow flex items-center gap-4 fade-in';
+            item.innerHTML = `
+                <div class="w-12 h-12 rounded-full ${icon.bg} flex items-center justify-center ${icon.text}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        ${icon.svg}
+                    </svg>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-sm">${escapeHtml(title)}</h4>
+                    <p class="text-xs text-gray-500">${escapeHtml(subtitle)}</p>
+                </div>
+            `;
+            
+            list.insertBefore(item, list.firstChild);
+            
+            // Keep only last 5
+            while (list.children.length > 5) {
+                list.removeChild(list.lastChild);
+            }
+        }
+
+        // ================= EVENT LISTENERS =================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check tutorial
+            if (localStorage.getItem('mathbot_tutorial_dismissed')) {
+                const box = qs('tutorialBox');
+                if (box) box.classList.add('hidden');
+            }
+            
+            // Initialize
+            init();
+        });
+
+        // Handle visibility change for chat
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                const chatView = qs('chatView');
+                if (chatView && chatView.classList.contains('flex')) {
+                    pollChatMessages();
+                }
+            }
+        });
+
+        // Prevent zoom on double tap for iOS
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // Handle back button (Android)
+        if (window.Telegram?.WebApp?.BackButton) {
+            window.Telegram.WebApp.BackButton.onClick(() => {
+                const quiz = qs('quizView');
+                const explanation = qs('explanationView');
+                
+                if (explanation && !explanation.classList.contains('hidden')) {
+                    backToQuiz();
+                } else if (quiz && !quiz.classList.contains('hidden')) {
+                    goHome();
+                } else {
+                    window.Telegram.WebApp.close();
+                }
+            });
+        }
+
+        // ================= ADMIN BANNER =================
+        async function checkAdminBanner() {
+            try {
+                const data = await api('get_admin_message');
+                if (data.success && data.message) {
+                    const banner = qs('adminBanner');
+                    const text = qs('adminMessageText');
+                    
+                    if (banner && text && data.message.text) {
+                        text.textContent = data.message.text;
+                        banner.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                console.log('Admin banner check failed', e);
+            }
+        }
+
+        // Expose functions to window for HTML onclick handlers
+        window.switchView = switchView;
+        window.goHome = goHome;
+        window.startTopic = startTopic;
+        window.selectOption = selectOption;
+        window.checkAnswer = checkAnswer;
+        window.showExplanation = showExplanation;
+        window.backToQuiz = backToQuiz;
+        window.nextQuestion = nextQuestion;
+        window.retryQuiz = retryQuiz;
+        window.startDailyChallenge = startDailyChallenge;
+        window.showNotifications = showNotifications;
+        window.hideNotifications = hideNotifications;
+        window.clearNotifications = clearNotifications;
+        window.markRead = markRead;
+        window.dismissTutorial = dismissTutorial;
+        window.dismissBanner = dismissBanner;
+        window.forceShowApp = forceShowApp;
+        window.toggleMathHelper = toggleMathHelper;
+        window.insertMath = insertMath;
+        window.sendChatMessage = sendChatMessage;
+        window.tapUsername = tapUsername;
+        window.closeProfile = closeProfile;
+        window.closeProfileOnBackdrop = closeProfileOnBackdrop;
+        window.mentionUser = mentionUser;
+        window.openFullProfile = openFullProfile;
+    </script>
+</body>
+</html>

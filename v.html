@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <title>MathBot Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; }
+        body { background: #F5F5F0; color: #1C1C1E; overflow-x: hidden; }
+        .card-shadow { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.02); }
+        .bg-primary { background-color: #0D7377; }
+        .text-primary { color: #0D7377; }
+        .btn-press:active { transform: scale(0.96); transition: transform 0.1s; }
+        .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .option-btn { transition: all 0.2s ease; }
+        .option-btn.selected { background-color: #0D7377; color: white; border-color: #0D7377; }
+        .option-btn.correct { background-color: #14A085; color: white; border-color: #14A085; }
+        .option-btn.wrong { background-color: #FF6B6B; color: white; border-color: #FF6B6B; }
+        
+        .message-bubble { animation: messagePop 0.3s ease-out; }
+        @keyframes messagePop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .streak-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        
+        .confetti { position: fixed; width: 10px; height: 10px; pointer-events: none; animation: confetti-fall 3s ease-out forwards; }
+        @keyframes confetti-fall { 0% { transform: translateY(-100px) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+        
+        .notification-badge { animation: badgePulse 2s infinite; }
+        @keyframes badgePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+        
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
+        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        
+        .topic-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .topic-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        /* Chat specific */
+        #chatView.hidden { display: none !important; }
+        #chatView { display: flex; flex-direction: column; }
+        /* Fix for mobile keyboard and safe areas */
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 12px);
+}
+
+/* Prevent zoom on input focus for iOS */
+input, textarea, select {
+    font-size: 16px;
+}
+
+/* Ensure chat view handles keyboard properly */
+#chatView {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100vh;
+    max-height: 100dvh; /* Dynamic viewport height for mobile */
+}
+
+#chatMessages {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for iOS button/input alignment issues */
+button, input {
+    -webkit-appearance: none;
+    border-radius: 0;
+}
+
+button[type="button"] {
+    border-radius: 9999px;
+}
+
+input {
+    border-radius: 1rem;
+}
+        /* KaTeX in chat bubbles */
+.katex-chat .katex {
+    font-size: 1em;
+    line-height: 1.2;
+}
+.katex-chat .katex-display {
+    margin: 0.5em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.katex-chat .katex-display::-webkit-scrollbar {
+    height: 2px;
+}
+.katex-chat .katex-display::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.1);
+    border-radius: 2px;
+}
+/* Profile Customization System */
+.profile-theme-default { --profile-accent: #0D7377; --profile-gradient: linear-gradient(135deg, #0D7377 0%, #14A085 100%); }
+.profile-theme-purple { --profile-accent: #7C3AED; --profile-gradient: linear-gradient(135deg, #7C3AED 0%, #EC4899 100%); }
+.profile-theme-orange { --profile-accent: #F97316; --profile-gradient: linear-gradient(135deg, #F97316 0%, #EF4444 100%); }
+.profile-theme-blue { --profile-accent: #3B82F6; --profile-gradient: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%); }
+.profile-theme-dark { --profile-accent: #1F2937; --profile-gradient: linear-gradient(135deg, #1F2937 0%, #4B5563 100%); }
+.profile-theme-gold { --profile-accent: #F59E0B; --profile-gradient: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); }
+
+.profile-accent-text { color: var(--profile-accent); }
+.profile-accent-bg { background: var(--profile-accent); }
+.profile-gradient-bg { background: var(--profile-gradient); }
+
+/* Achievement Badges */
+.achievement-badge {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+.achievement-badge::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+.achievement-badge:hover::before {
+    left: 100%;
+}
+.achievement-locked {
+    filter: grayscale(100%);
+    opacity: 0.6;
+}
+.achievement-progress {
+    background: linear-gradient(90deg, var(--profile-accent) 0%, #10B981 100%);
+}
+
+/* Custom Name Styles */
+.name-style-normal { font-weight: 600; }
+.name-style-bold { font-weight: 800; letter-spacing: -0.02em; }
+.name-style-italic { font-style: italic; font-weight: 600; }
+.name-style-gradient {
+    background: var(--profile-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+}
+.name-style-glow {
+    text-shadow: 0 0 10px var(--profile-accent);
+    color: var(--profile-accent);
+    font-weight: 700;
+}
+
+/* Stake/Points Display Customization */
+.stake-display-modern {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+.stake-display-classic {
+    background: var(--profile-accent);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.stake-display-minimal {
+    background: transparent;
+    border: 2px solid var(--profile-accent);
+    color: var(--profile-accent);
+}
+
+/* Settings Panel */
+.settings-section {
+    border-bottom: 1px solid #E5E7EB;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.color-picker-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+}
+.color-picker-btn.active {
+    border-color: white;
+    box-shadow: 0 0 0 2px var(--profile-accent);
+    transform: scale(1.1);
+}
+.color-picker-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 28px;
+    background: #E5E7EB;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+.toggle-switch.active {
+    background: var(--profile-accent);
+}
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.toggle-switch.active::after {
+    transform: translateX(22px);
+}
+
+/* Preview Card */
+.preview-card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.3s;
+}
+.preview-card:hover {
+    transform: translateY(-2px);
+}
+    </style>
+</head>
+<body class="bg-cream">
+    <div id="app" class="max-w-md mx-auto min-h-screen relative pb-20 flex flex-col">
+
+        <!-- Header -->
+        <header class="sticky top-0 z-50 bg-cream/95 backdrop-blur-md px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-teal-700 flex items-center justify-center text-white font-bold text-lg">∑</div>
+                <div>
+                    <p class="text-xs text-gray-500">Welcome back</p>
+                    <h1 class="font-bold text-lg leading-tight" id="userName">Hello!</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1 bg-orange-100 px-3 py-1.5 rounded-full">
+                    <span class="text-lg">🔥</span>
+                    <span class="font-bold text-orange-600 text-sm streak-pulse" id="streakCount">0</span>
+                </div>
+                <button onclick="showNotifications()" class="relative w-10 h-10 rounded-full bg-white flex items-center justify-center card-shadow btn-press">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    <span id="notifBadge" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center notification-badge hidden">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Notifications Panel -->
+        <div id="notificationsPanel" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onclick="hideNotifications()">
+            <div class="absolute top-16 right-4 w-80 bg-white rounded-2xl card-shadow max-h-96 overflow-hidden slide-in" onclick="event.stopPropagation()">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="font-bold">Messages</h3>
+                    <button onclick="clearNotifications()" class="text-xs text-teal-600 font-medium">Clear All</button>
+                </div>
+                <div id="notificationsList" class="overflow-y-auto max-h-80 p-2 space-y-2">
+                    <div class="text-center py-8 text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+                        <p class="text-sm">No notifications</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingView" class="fixed inset-0 bg-cream z-50 flex items-center justify-center">
+            <div class="text-center">
+                <div class="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading...</p>
+                <p class="text-xs text-gray-400 mt-2">Taking too long? <button onclick="forceShowApp()" class="text-teal-600 underline">Tap here</button></p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main id="mainContent" class="px-4 pt-2 hidden flex-1 flex flex-col min-h-0 overflow-hidden">
+            
+            <!-- Home View -->
+            <div id="homeView" class="fade-in">
+                <div id="tutorialBox" class="bg-blue-100 p-4 rounded-xl mb-4">
+                    <h3 class="font-bold">👋 Beginner Guide</h3>
+                    <p class="text-sm mt-1">
+                        1. Choose a topic<br>
+                        2. Answer questions<br>
+                        3. Build streak 🔥<br>
+                        4. Check explanation to learn!
+                    </p>
+                    <button onclick="this.parentElement.remove()" class="mt-2 text-xs text-blue-600">Got it</button>
+                </div>
+
+                <!-- Group Chat Promo -->
+                <div onclick="switchView('chat')" class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 text-white mb-6 card-shadow cursor-pointer btn-press fade-in">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">💬</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold">Group Chat</h3>
+                            <p class="text-xs opacity-90 mt-0.5">Discuss math problems with learners</p>
+                        </div>
+                        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </div>
+                
+                <!-- Admin Message Banner -->
+                <div id="adminBanner" class="hidden bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-4 text-white mb-4 card-shadow">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs font-medium opacity-80 mb-1">From Admin</p>
+                            <p class="text-sm font-medium" id="adminMessageText">New content available!</p>
+                        </div>
+                        <button onclick="dismissBanner()" class="text-white/60 hover:text-white btn-press">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Daily Challenge -->
+                <div class="bg-gradient-to-br from-teal-600 to-teal-700 rounded-2xl p-5 text-white mb-6 card-shadow relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">🏆</span>
+                            <span class="font-semibold text-sm opacity-90">Daily Challenge</span>
+                            <span id="dailyCompleted" class="hidden bg-white/20 px-2 py-0.5 rounded text-xs">✓ Done</span>
+                        </div>
+                        <h2 class="text-xl font-bold mb-2">Challenge your skills!</h2>
+                        <p class="text-sm opacity-80 mb-4">Complete today's challenge to maintain your streak</p>
+                        <button onclick="startDailyChallenge()" id="dailyBtn" class="bg-white text-teal-700 px-6 py-2.5 rounded-xl font-semibold text-sm btn-press">
+                            Start Challenge →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Topics Grid -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Choose Topic</h3>
+                    <span class="text-xs text-gray-500" id="questionCount">Loading...</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-6" id="topicsGrid">
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                    <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                </div>
+
+                <!-- Recent Activity -->
+                <h3 class="font-bold text-lg mb-4">Recent Activity</h3>
+                <div class="space-y-3" id="activityList">
+                    <div class="bg-white rounded-2xl p-4 card-shadow flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-xl text-blue-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-sm">Welcome to MathBot!</h4>
+                            <p class="text-xs text-gray-500">Start learning today</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz View -->
+            <div id="quizView" class="hidden slide-in">
+                <div class="flex items-center justify-between mb-4">
+                    <button onclick="goHome()" class="p-2 -ml-2 rounded-full hover:bg-gray-200 btn-press">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <div class="flex-1 mx-4">
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="progressBar" class="h-full bg-teal-600 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center text-xs text-gray-500 mt-1"><span id="currentQ">1</span>/<span id="totalQ">5</span></p>
+                    </div>
+                    <div class="w-10"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 card-shadow mb-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs font-semibold" id="topicBadge">Topic</span>
+                        <span class="text-xs text-gray-400" id="difficultyBadge"></span>
+                    </div>
+                    <h2 id="questionText" class="text-lg font-semibold mb-4 leading-relaxed">Question loading...</h2>
+                </div>
+
+                <div id="optionsContainer" class="space-y-3 mb-4"></div>
+
+                <div class="flex gap-3">
+                    <button onclick="showExplanation()" id="explainBtn" class="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-semibold btn-press disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Explanation
+                    </button>
+                    <button onclick="checkAnswer()" id="checkBtn" class="flex-1 bg-teal-600 text-white py-3.5 rounded-xl font-semibold btn-press disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Check
+                    </button>
+                </div>
+            </div>
+
+            <!-- Explanation View -->
+            <div id="explanationView" class="hidden slide-in">
+                <div class="flex items-center gap-3 mb-4">
+                    <button onclick="backToQuiz()" class="p-2 -ml-2 rounded-full hover:bg-gray-200 btn-press">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <h2 class="font-bold text-lg">Explanation</h2>
+                </div>
+
+                <div class="bg-white rounded-2xl p-5 card-shadow mb-4">
+                    <div id="explanationContent" class="text-gray-700 leading-relaxed"></div>
+                </div>
+
+                <button onclick="nextQuestion()" class="w-full bg-teal-600 text-white py-4 rounded-xl font-semibold btn-press">
+                    Next Question →
+                </button>
+            </div>
+
+            <!-- Results View -->
+            <div id="resultsView" class="hidden fade-in">
+                <div class="text-center py-8">
+                    <div id="resultIcon" class="w-24 h-24 mx-auto bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-4xl mb-4 shadow-lg">
+                        🏆
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">Quiz Complete!</h2>
+                    <p class="text-gray-500" id="resultMessage">Great job!</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 card-shadow mb-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-gray-600">Score</span>
+                        <span class="text-2xl font-bold text-teal-600" id="finalScore">0/0</span>
+                    </div>
+                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div id="accuracyBar" class="h-full bg-teal-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p class="text-center text-sm text-gray-500 mt-2" id="accuracyText">0% accuracy</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-white rounded-2xl p-4 card-shadow text-center">
+                        <p class="text-2xl font-bold text-green-600" id="correctCount">0</p>
+                        <p class="text-xs text-gray-500">Correct</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-4 card-shadow text-center">
+                        <p class="text-2xl font-bold text-red-500" id="wrongCount">0</p>
+                        <p class="text-xs text-gray-500">Wrong</p>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-4 hidden" id="pointsEarned">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">💎</span>
+                        <div>
+                            <p class="font-bold text-yellow-800">+<span id="pointsValue">0</span> Points</p>
+                            <p class="text-xs text-yellow-600">Keep it up!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <button onclick="retryQuiz()" class="w-full bg-teal-600 text-white py-4 rounded-xl font-semibold btn-press">
+                        Try Again ↻
+                    </button>
+                    <button onclick="goHome()" class="w-full bg-white text-gray-700 py-4 rounded-xl font-semibold card-shadow btn-press">
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profile View -->
+            <!-- Profile View -->
+<div id="profileView" class="hidden fade-in pb-24">
+    <!-- Profile Header Card -->
+    <div class="preview-card mb-6 mx-2">
+        <div id="profileHeaderBg" class="h-24 profile-gradient-bg relative">
+            <div class="absolute -bottom-10 left-1/2 transform -translate-x-1/2">
+                <div id="profileAvatar" class="w-20 h-20 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-3xl font-bold text-white profile-accent-bg">
+                    <span id="profileInitial">U</span>
+                </div>
+            </div>
+        </div>
+        <div class="pt-12 pb-6 px-6 text-center">
+            <h2 id="profileName" class="text-xl name-style-normal profile-accent-text mb-1">User</h2>
+            <p class="text-gray-500 text-sm" id="profileJoined">Joined recently</p>
+            
+            <!-- Customizable Stats Row -->
+            <div class="flex justify-center gap-4 mt-4">
+                <div id="stakeDisplay" class="px-4 py-2 rounded-full stake-display-classic text-white text-sm font-semibold flex items-center gap-2">
+                    <span id="stakeIcon">🔥</span>
+                    <span id="streakCount">0</span>
+                    <span id="stakeLabel">Streak</span>
+                </div>
+                <div id="pointsDisplay" class="px-4 py-2 rounded-full stake-display-classic text-white text-sm font-semibold flex items-center gap-2">
+                    <span id="pointsIcon">💎</span>
+                    <span id="pointsValue">0</span>
+                    <span id="pointsLabel">Points</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Achievements Showcase -->
+    <div class="bg-white rounded-2xl p-5 card-shadow mb-4 mx-2">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold">🏆 Achievements</h3>
+            <span id="achievementCount" class="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-600">0/10</span>
+        </div>
+        <div id="achievementsList" class="grid grid-cols-1 gap-3">
+            <!-- Dynamic achievements will be inserted here -->
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="bg-white rounded-2xl p-5 card-shadow mb-4 mx-2">
+        <h3 class="font-bold mb-4">📊 Statistics</h3>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="text-center p-3 bg-gray-50 rounded-xl">
+                <p class="text-2xl font-bold profile-accent-text" id="totalAnswered">0</p>
+                <p class="text-xs text-gray-500">Questions</p>
+            </div>
+            <div class="text-center p-3 bg-gray-50 rounded-xl">
+                <p class="text-2xl font-bold text-orange-500" id="bestStreak">0</p>
+                <p class="text-xs text-gray-500">Best Streak</p>
+            </div>
+            <div class="text-center p-3 bg-gray-50 rounded-xl">
+                <p class="text-2xl font-bold text-purple-600" id="topicsCompleted">0</p>
+                <p class="text-xs text-gray-500">Topics</p>
+            </div>
+            <div class="text-center p-3 bg-gray-50 rounded-xl">
+                <p class="text-2xl font-bold text-blue-600" id="accuracyRate">0%</p>
+                <p class="text-xs text-gray-500">Accuracy</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Settings Button -->
+    <button onclick="openSettings()" class="w-full bg-white rounded-2xl p-4 card-shadow mb-4 mx-2 flex items-center justify-between btn-press">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <div class="text-left">
+                <p class="font-semibold text-sm">Account Settings</p>
+                <p class="text-xs text-gray-500">Customize your profile</p>
+            </div>
+        </div>
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </button>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onclick="if(event.target === this) closeSettings()">
+    <div class="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl max-w-md mx-auto max-h-[90vh] overflow-y-auto slide-in">
+        <!-- Settings Header -->
+        <div class="sticky top-0 bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between z-10">
+            <h2 class="font-bold text-lg">Account Settings</h2>
+            <button onclick="closeSettings()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center btn-press">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div class="p-4 space-y-6">
+            <!-- Theme Color Section -->
+            <div class="settings-section">
+                <h3 class="font-semibold text-sm text-gray-500 uppercase tracking-wider mb-3">Profile Theme</h3>
+                <div class="flex gap-3 flex-wrap">
+                    <button onclick="setTheme('default')" class="color-picker-btn active" style="background: linear-gradient(135deg, #0D7377, #14A085)" data-theme="default"></button>
+                    <button onclick="setTheme('purple')" class="color-picker-btn" style="background: linear-gradient(135deg, #7C3AED, #EC4899)" data-theme="purple"></button>
+                    <button onclick="setTheme('orange')" class="color-picker-btn" style="background: linear-gradient(135deg, #F97316, #EF4444)" data-theme="orange"></button>
+                    <button onclick="setTheme('blue')" class="color-picker-btn" style="background: linear-gradient(135deg, #3B82F6, #06B6D4)" data-theme="blue"></button>
+                    <button onclick="setTheme('dark')" class="color-picker-btn" style="background: linear-gradient(135deg, #1F2937, #4B5563)" data-theme="dark"></button>
+                    <button onclick="setTheme('gold')" class="color-picker-btn" style="background: linear-gradient(135deg, #F59E0B, #D97706)" data-theme="gold"></button>
+                </div>
+            </div>
+
+            <!-- Name Style Section -->
+            <div class="settings-section">
+                <h3 class="font-semibold text-sm text-gray-500 uppercase tracking-wider mb-3">Name Style</h3>
+                <div class="space-y-2">
+                    <button onclick="setNameStyle('normal')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press name-style-btn active" data-style="normal">
+                        <span class="name-style-normal text-lg">Normal Style</span>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                    <button onclick="setNameStyle('bold')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press name-style-btn" data-style="bold">
+                        <span class="name-style-bold text-lg">Bold Impact</span>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator hidden">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                    <button onclick="setNameStyle('italic')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press name-style-btn" data-style="italic">
+                        <span class="name-style-italic text-lg">Italic Elegant</span>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator hidden">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                    <button onclick="setNameStyle('gradient')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press name-style-btn" data-style="gradient">
+                        <span class="name-style-gradient text-lg">Gradient Cool</span>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator hidden">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                    <button onclick="setNameStyle('glow')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press name-style-btn" data-style="glow">
+                        <span class="name-style-glow text-lg">Glowing Pro</span>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator hidden">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stake/Points Display Section -->
+            <div class="settings-section">
+                <h3 class="font-semibold text-sm text-gray-500 uppercase tracking-wider mb-3">Stats Display Style</h3>
+                <div class="space-y-2">
+                    <button onclick="setStatsStyle('classic')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press stats-style-btn active" data-stats="classic">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-6 rounded-full bg-teal-600"></div>
+                            <span class="font-medium">Classic Solid</span>
+                        </div>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                    <button onclick="setStatsStyle('modern')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press stats-style-btn" data-stats="modern">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-6 rounded-full bg-gray-200 border border-gray-300"></div>
+                            <span class="font-medium">Modern Glass</span>
+                        </div>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator hidden">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                    <button onclick="setStatsStyle('minimal')" class="w-full p-3 rounded-xl border-2 border-gray-200 flex items-center justify-between btn-press stats-style-btn" data-stats="minimal">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-6 rounded-full border-2 border-teal-600"></div>
+                            <span class="font-medium">Minimal Outline</span>
+                        </div>
+                        <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center check-indicator hidden">
+                            <div class="w-2.5 h-2.5 rounded-full bg-teal-600"></div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Labels Customization -->
+            <div class="settings-section">
+                <h3 class="font-semibold text-sm text-gray-500 uppercase tracking-wider mb-3">Custom Labels</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs text-gray-500 mb-1 block">Streak Label</label>
+                        <input type="text" id="stakeLabelInput" maxlength="10" placeholder="Streak" 
+                            class="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
+                            onchange="updateLabels()">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 mb-1 block">Points Label</label>
+                        <input type="text" id="pointsLabelInput" maxlength="10" placeholder="Points" 
+                            class="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
+                            onchange="updateLabels()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Privacy Toggle -->
+            <div class="settings-section">
+                <h3 class="font-semibold text-sm text-gray-500 uppercase tracking-wider mb-3">Privacy</h3>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-medium">Show Profile on Leaderboard</p>
+                        <p class="text-xs text-gray-500">Allow others to see your achievements</p>
+                    </div>
+                    <div class="toggle-switch active" id="privacyToggle" onclick="togglePrivacy()"></div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <button onclick="saveSettings()" class="w-full bg-teal-600 text-white py-4 rounded-xl font-semibold btn-press shadow-lg shadow-teal-600/30">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+            <!-- Leaderboard View -->
+            <div id="leaderboardView" class="hidden fade-in">
+                <h2 class="font-bold text-xl mb-4">🏆 Leaderboard</h2>
+                
+                <div class="bg-white rounded-2xl p-4 card-shadow mb-4">
+                    <div class="flex items-center gap-4 p-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl mb-3">
+                        <div class="text-2xl">🥇</div>
+                        <div class="flex-1">
+                            <p class="font-bold">You</p>
+                            <p class="text-xs text-gray-500">Current Rank</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-lg" id="userRank">#--</p>
+                            <p class="text-xs text-gray-500" id="userPoints">0 pts</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                    <div id="leaderboardList" class="divide-y divide-gray-100"></div>
+                </div>
+            </div>
+
+            <!-- Chat View -->
+            <div id="chatView" class="hidden fade-in flex-col h-[calc(100vh-140px)]">
+                <!-- Chat Header -->
+                <div class="bg-white/95 backdrop-blur-md px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0 sticky top-0 z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-sm">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-lg leading-tight">Math Group</h2>
+                            <p class="text-xs text-gray-500"><span id="chatUserCount">0</span> active today</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Messages Area -->
+                <div id="chatMessages" class="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-cream min-h-0">
+                    <div class="text-center py-12 text-gray-400" id="chatEmptyState">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                        </div>
+                        <p class="text-sm font-medium">No messages yet</p>
+                        <p class="text-xs mt-1">Be the first to say hello!</p>
+                    </div>
+                </div>
+                
+                <!-- Input Area -->
+<!-- Input Area -->
+<div class="bg-white border-t border-gray-100 px-4 py-3 flex-shrink-0 safe-area-bottom">
+    <!-- Math Helper -->
+    <div id="mathHelper" class="hidden mb-2 p-2 bg-gray-50 rounded-xl border border-gray-100">
+        <p class="text-[10px] text-gray-500 font-medium mb-1.5">Format: <code class="bg-gray-200 px-1 rounded">$x^2$</code> for inline, <code class="bg-gray-200 px-1 rounded">$$\frac{1}{2}$$</code> for display</p>
+        <div class="flex gap-1.5 flex-wrap">
+            <button onclick="insertMath('x^2')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform">x²</button>
+            <button onclick="insertMath('\\sqrt{x}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform">√x</button>
+            <button onclick="insertMath('\\frac{a}{b}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform">a/b</button>
+            <button onclick="insertMath('\\sum_{i=1}^{n}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform">∑</button>
+            <button onclick="insertMath('\\int_{0}^{\\infty}')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform">∫</button>
+            <button onclick="insertMath('\\theta')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform">θ</button>
+            <button onclick="insertMath('\\pi')" class="text-xs bg-white border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform">π</button>
+        </div>
+    </div>
+    
+    <div class="flex gap-2 items-end max-w-full">
+        <button onclick="toggleMathHelper()" class="w-10 h-11 flex items-center justify-center text-gray-400 hover:text-teal-600 transition-colors mb-0.5 flex-shrink-0 rounded-xl active:scale-95" title="Math Helper" type="button">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        </button>
+        
+        <div class="flex-1 min-w-0">
+            <input type="text" id="chatInput" placeholder="Type a message... Use $x^2$ for math" maxlength="500"
+                class="w-full bg-gray-100 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 transition-all"
+                onkeypress="if(event.key==='Enter') sendChatMessage()">
+        </div>
+        
+        <button onclick="sendChatMessage()" id="sendBtn" 
+            class="w-11 h-11 rounded-full bg-teal-600 text-white flex items-center justify-center btn-press shadow-lg shadow-teal-600/30 disabled:opacity-40 disabled:shadow-none transition-all mb-0.5 flex-shrink-0 active:scale-95" type="button">
+            <svg class="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+        </button>
+    </div>
+</div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex justify-around items-center max-w-md mx-auto z-40">
+            <button onclick="switchView('home')" class="nav-btn flex flex-col items-center gap-1 text-teal-600 transition-colors" data-view="home">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                <span class="text-xs font-medium">Home</span>
+            </button>
+            <button onclick="switchView('chat')" class="nav-btn flex flex-col items-center gap-1 text-gray-400 transition-colors relative" data-view="chat">
+                <div class="relative">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/></svg>
+                    <span id="chatBadge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                </div>
+                <span class="text-xs font-medium">Chat</span>
+            </button>
+            <button onclick="switchView('leaderboard')" class="nav-btn flex flex-col items-center gap-1 text-gray-400 transition-colors" data-view="leaderboard">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <span class="text-xs font-medium">Rank</span>
+            </button>
+            <button onclick="switchView('profile')" class="nav-btn flex flex-col items-center gap-1 text-gray-400 transition-colors" data-view="profile">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <span class="text-xs font-medium">Profile</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // ================= CONFIG =================
+        const API_URL = 'https://khmerservice.online/math/api.php';
+        // Profile Customization State
+const profileSettings = {
+    theme: 'default',
+    nameStyle: 'normal',
+    statsStyle: 'classic',
+    stakeLabel: 'Streak',
+    pointsLabel: 'Points',
+    showOnLeaderboard: true
+};
+
+// Load saved settings on init
+function loadProfileSettings() {
+    const saved = localStorage.getItem('mathbot_profile_settings');
+    if (saved) {
+        Object.assign(profileSettings, JSON.parse(saved));
+        applyProfileSettings();
+    }
+}
+
+function applyProfileSettings() {
+    // Apply theme
+    document.body.className = document.body.className.replace(/profile-theme-\w+/g, '');
+    document.body.classList.add(`profile-theme-${profileSettings.theme}`);
+    
+    // Apply name style
+    const nameEl = document.getElementById('profileName');
+    if (nameEl) {
+        nameEl.className = nameEl.className.replace(/name-style-\w+/g, '');
+        nameEl.classList.add(`name-style-${profileSettings.nameStyle}`);
+    }
+    
+    // Apply stats style
+    const stakeEl = document.getElementById('stakeDisplay');
+    const pointsEl = document.getElementById('pointsDisplay');
+    if (stakeEl && pointsEl) {
+        stakeEl.className = stakeEl.className.replace(/stake-display-\w+/g, '');
+        pointsEl.className = pointsEl.className.replace(/stake-display-\w+/g, '');
+        stakeEl.classList.add(`stake-display-${profileSettings.statsStyle}`);
+        pointsEl.classList.add(`stake-display-${profileSettings.statsStyle}`);
+    }
+    
+    // Apply labels
+    document.getElementById('stakeLabel').textContent = profileSettings.stakeLabel;
+    document.getElementById('pointsLabel').textContent = profileSettings.pointsLabel;
+}
+
+// Settings Modal Functions
+function openSettings() {
+    document.getElementById('settingsModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    // Populate current values
+    document.getElementById('stakeLabelInput').value = profileSettings.stakeLabel;
+    document.getElementById('pointsLabelInput').value = profileSettings.pointsLabel;
+    
+    // Update UI to match current settings
+    updateSettingsUI();
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function updateSettingsUI() {
+    // Update theme buttons
+    document.querySelectorAll('.color-picker-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === profileSettings.theme);
+    });
+    
+    // Update name style buttons
+    document.querySelectorAll('.name-style-btn').forEach(btn => {
+        const isActive = btn.dataset.style === profileSettings.nameStyle;
+        btn.classList.toggle('active', isActive);
+        btn.classList.toggle('border-teal-600', isActive);
+        btn.classList.toggle('border-gray-200', !isActive);
+        btn.querySelector('.check-indicator').classList.toggle('hidden', !isActive);
+    });
+    
+    // Update stats style buttons
+    document.querySelectorAll('.stats-style-btn').forEach(btn => {
+        const isActive = btn.dataset.stats === profileSettings.statsStyle;
+        btn.classList.toggle('active', isActive);
+        btn.classList.toggle('border-teal-600', isActive);
+        btn.classList.toggle('border-gray-200', !isActive);
+        btn.querySelector('.check-indicator').classList.toggle('hidden', !isActive);
+    });
+}
+
+// Setting Change Handlers
+function setTheme(theme) {
+    profileSettings.theme = theme;
+    applyProfileSettings();
+    updateSettingsUI();
+}
+
+function setNameStyle(style) {
+    profileSettings.nameStyle = style;
+    applyProfileSettings();
+    updateSettingsUI();
+}
+
+function setStatsStyle(style) {
+    profileSettings.statsStyle = style;
+    applyProfileSettings();
+    updateSettingsUI();
+}
+
+function updateLabels() {
+    profileSettings.stakeLabel = document.getElementById('stakeLabelInput').value || 'Streak';
+    profileSettings.pointsLabel = document.getElementById('pointsLabelInput').value || 'Points';
+    applyProfileSettings();
+}
+
+function togglePrivacy() {
+    profileSettings.showOnLeaderboard = !profileSettings.showOnLeaderboard;
+    document.getElementById('privacyToggle').classList.toggle('active', profileSettings.showOnLeaderboard);
+}
+
+function saveSettings() {
+    localStorage.setItem('mathbot_profile_settings', JSON.stringify(profileSettings));
+    
+    // Show success feedback
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+    
+    closeSettings();
+    
+    // Show toast notification
+    showToast('Settings saved!');
+}
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm font-medium z-50 fade-in';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+// Enhanced Achievement Display
+function renderAchievements(achievements) {
+    const container = document.getElementById('achievementsList');
+    const unlockedCount = achievements.filter(a => !a.locked).length;
+    document.getElementById('achievementCount').textContent = `${unlockedCount}/${achievements.length}`;
+    
+    container.innerHTML = achievements.map(ach => `
+        <div class="achievement-badge ${ach.locked ? 'achievement-locked' : ''} bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+            <div class="text-3xl">${ach.icon}</div>
+            <div class="flex-1">
+                <div class="flex justify-between items-center mb-1">
+                    <p class="font-semibold text-sm ${ach.locked ? 'text-gray-400' : 'text-gray-900'}">${ach.name}</p>
+                    ${ach.progress ? `<span class="text-xs ${ach.locked ? 'text-gray-400' : 'text-teal-600'}">${ach.current}/${ach.target}</span>` : ''}
+                </div>
+                <p class="text-xs ${ach.locked ? 'text-gray-400' : 'text-gray-500'}">${ach.description}</p>
+                ${ach.progress ? `
+                    <div class="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="achievement-progress h-full rounded-full" style="width: ${(ach.current/ach.target)*100}%"></div>
+                    </div>
+                ` : ''}
+            </div>
+            ${!ach.locked ? '<div class="text-teal-500"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>' : ''}
+        </div>
+    `).join('');
+}
+
+// Update loadProfile function to use new achievement renderer
+async function loadProfile() {
+    try {
+        const data = await api('get_profile');
+        if (!data.success) return;
+        
+        const u = data.user || {};
+        const totalQ = (u.total_correct || 0) + (u.total_wrong || 0);
+        document.getElementById('totalAnswered').textContent = totalQ;
+        document.getElementById('bestStreak').textContent = u.best_streak || 0;
+        document.getElementById('topicsCompleted').textContent = data.topics_completed || 0;
+        document.getElementById('accuracyRate').textContent = (data.accuracy || 0) + '%';
+        document.getElementById('stakeValue').textContent = u.streak || 0;
+        document.getElementById('pointsValue').textContent = u.xp || 0;
+        document.getElementById('profilePoints').textContent = u.xp || 0;
+        
+        // Build achievements array with progress
+        const achievements = [
+            { icon: '🔥', name: 'Week Warrior', description: '7 day streak', locked: (u.streak || 0) < 7, current: u.streak || 0, target: 7 },
+            { icon: '📅', name: 'Monthly Master', description: '30 day streak', locked: (u.streak || 0) < 30, current: u.streak || 0, target: 30 },
+            { icon: '📚', name: 'Quiz Taker', description: '10 quizzes completed', locked: (u.total_quizzes || 0) < 10, current: u.total_quizzes || 0, target: 10 },
+            { icon: '🎯', name: 'Sharp Shooter', description: '90% accuracy', locked: (data.accuracy || 0) < 90, current: data.accuracy || 0, target: 90 },
+            { icon: '💎', name: 'Point Hoarder', description: '1000 XP earned', locked: (u.xp || 0) < 1000, current: u.xp || 0, target: 1000 },
+            { icon: '🧮', name: 'Math Beginner', description: 'Complete first quiz', locked: (u.total_quizzes || 0) < 1, current: u.total_quizzes || 0, target: 1 },
+            { icon: '📐', name: 'Algebra Ace', description: 'Master Algebra topic', locked: !data.topics?.includes('Algebra'), current: data.topics?.includes('Algebra') ? 1 : 0, target: 1 },
+            { icon: '📏', name: 'Geometry Genius', description: 'Master Geometry topic', locked: !data.topics?.includes('Geometry'), current: data.topics?.includes('Geometry') ? 1 : 0, target: 1 },
+            { icon: '⚡', name: 'Speed Demon', description: 'Complete quiz in under 2 min', locked: !data.fast_quiz, current: data.fast_quiz ? 1 : 0, target: 1 },
+            { icon: '🏆', name: 'Perfect Score', description: 'Get 100% on any quiz', locked: !data.perfect_quiz, current: data.perfect_quiz ? 1 : 0, target: 1 }
+        ];
+        
+        renderAchievements(achievements);
+        
+        // Apply saved settings
+        loadProfileSettings();
+        
+    } catch (e) {
+        console.error('loadProfile error:', e);
+    }
+}
+        // ================= TELEGRAM =================
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // ================= STATE =================
+        const state = {
+            telegramId: null,
+            user: null,
+            questions: [],
+            currentQuestionIndex: 0,
+            selectedOption: null,
+            hasAnswered: false,
+            loading: false,
+            correctAnswers: 0,
+            wrongAnswers: 0,
+            currentTopic: null,
+            userStats: null
+        };
+
+        // ================= CHAT STATE =================
+        let chatInterval = null;
+        let chatLastId = 0;
+        let chatMessagesCache = [];
+        let unreadChatCount = 0;
+        let isChatInitialized = false;
+
+        // ================= HELPERS =================
+        function qs(id) { return document.getElementById(id); }
+        function toggleMathHelper() {
+    const el = qs('mathHelper');
+    if (el) el.classList.toggle('hidden');
+}
+
+function insertMath(latex) {
+    const input = qs('chatInput');
+    if (!input) return;
+    
+    const before = input.value.slice(0, input.selectionStart);
+    const after = input.value.slice(input.selectionEnd);
+    const wrapper = before.endsWith(' ') || before === '' ? '' : ' ';
+    
+    input.value = before + wrapper + '$' + latex + '$ ' + after;
+    input.focus();
+    
+    // Move cursor after inserted text
+    const newPos = (before + wrapper + '$' + latex + '$ ').length;
+    input.setSelectionRange(newPos, newPos);
+}
+
+        function showError(msg) {
+            console.error('Error:', msg);
+            if (tg && tg.showAlert) {
+                tg.showAlert(msg || 'Something went wrong');
+            } else {
+                alert(msg || 'Something went wrong');
+            }
+        }
+
+        function setLoading(val) {
+            state.loading = val;
+            const el = qs('loadingView');
+            if (el) el.classList.toggle('hidden', !val);
+        }
+
+        function forceShowApp() {
+            console.log('Force showing app...');
+            setLoading(false);
+            const mc = qs('mainContent');
+            if (mc) mc.classList.remove('hidden');
+            switchView('home');
+        }
+
+        // ================= API =================
+        async function api(action, data) {
+            try {
+                const payload = {
+                    action: action,
+                    telegram_id: state.telegramId,
+                    ...data
+                };
+                
+                console.log('API Request:', action, payload);
+                
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+                
+                const json = await res.json();
+                console.log('API Response:', action, json);
+                return json;
+                
+            } catch(e) {
+                console.error('API Error:', action, e);
+                return {success: false, error: 'Network error'};
+            }
+        }
+
+        // ================= CHAT FUNCTIONS =================
+        function getUserColor(id) {
+            const colors = [
+                'from-blue-500 to-blue-600', 
+                'from-purple-500 to-purple-600', 
+                'from-orange-500 to-orange-600', 
+                'from-pink-500 to-pink-600', 
+                'from-indigo-500 to-indigo-600', 
+                'from-teal-500 to-teal-600',
+                'from-red-500 to-red-600',
+                'from-green-500 to-green-600'
+            ];
+            const num = parseInt(id) || 0;
+            return 'bg-gradient-to-br ' + colors[Math.abs(num) % colors.length];
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        function renderMathText(text) {
+    if (!text || typeof window.katex === 'undefined') return escapeHtml(text).replace(/\n/g, '<br>');
+    
+    // Parse text into segments: text | inline_math | display_math
+    const segments = [];
+    let remaining = text;
+    
+    // First pass: extract display math $$...$$
+    const displayRegex = /\$\$([\s\S]+?)\$\$/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = displayRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            segments.push({type: 'text', content: text.slice(lastIndex, match.index)});
+        }
+        segments.push({type: 'display', content: match[1].trim()});
+        lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+        segments.push({type: 'text', content: text.slice(lastIndex)});
+    }
+    
+    // Second pass: extract inline math $...$ from text segments
+    const finalSegments = [];
+    segments.forEach(seg => {
+        if (seg.type !== 'text') {
+            finalSegments.push(seg);
+            return;
+        }
+        
+        const inlineRegex = /\$((?:\\\$|[^\$])+?)\$/g;
+        let txt = seg.content;
+        let idx = 0;
+        let m;
+        
+        while ((m = inlineRegex.exec(txt)) !== null) {
+            if (m.index > idx) {
+                finalSegments.push({type: 'text', content: txt.slice(idx, m.index)});
+            }
+            finalSegments.push({type: 'inline', content: m[1].trim()});
+            idx = m.index + m[0].length;
+        }
+        if (idx < txt.length) {
+            finalSegments.push({type: 'text', content: txt.slice(idx)});
+        }
+    });
+    
+    // Render all segments
+    return finalSegments.map(seg => {
+        if (seg.type === 'text') {
+            return escapeHtml(seg.content).replace(/\n/g, '<br>');
+        }
+        try {
+            return window.katex.renderToString(seg.content, {
+                throwOnError: false,
+                displayMode: seg.type === 'display',
+                strict: false
+            });
+        } catch (e) {
+            return escapeHtml(seg.type === 'display' ? '$$' + seg.content + '$$' : '$' + seg.content + '$');
+        }
+    }).join('');
+        }
+
+        function formatChatTime(dateString) {
+            const d = new Date(dateString);
+            return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function formatChatDate(dateString) {
+            const d = new Date(dateString);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (d.toDateString() === today.toDateString()) return 'Today';
+            if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            return d.toLocaleDateString([], {month: 'short', day: 'numeric'});
+        }
+
+        async function initChat() {
+            if (!isChatInitialized) {
+                await loadChatMessages();
+                await loadChatStats();
+                isChatInitialized = true;
+            }
+            
+            unreadChatCount = 0;
+            const badge = qs('chatBadge');
+            if (badge) badge.classList.add('hidden');
+            
+            if (chatInterval) clearInterval(chatInterval);
+            chatInterval = setInterval(() => {
+                const chatView = qs('chatView');
+                if (chatView && !chatView.classList.contains('hidden')) {
+                    pollChatMessages();
+                }
+            }, 3000);
+            
+            setTimeout(() => {
+                const input = qs('chatInput');
+                if (input) input.focus();
+            }, 300);
+        }
+
+        async function loadChatMessages() {
+            try {
+                const data = await api('get_chat_messages', {limit: 50});
+                if (data.success && Array.isArray(data.messages)) {
+                    chatMessagesCache = data.messages;
+                    renderChatMessages();
+                }
+            } catch (e) {
+                console.error('loadChatMessages error:', e);
+            }
+        }
+
+        async function pollChatMessages() {
+            try {
+                const data = await api('get_chat_messages', {limit: 50, after_id: chatLastId});
+                if (!data.success || !Array.isArray(data.messages)) return;
+                
+                const existingIds = new Set(chatMessagesCache.map(m => parseInt(m.id)));
+                const newMsgs = data.messages.filter(m => !existingIds.has(parseInt(m.id)));
+                
+                if (newMsgs.length > 0) {
+                    chatMessagesCache.push(...newMsgs);
+                    if (chatMessagesCache.length > 100) {
+                        chatMessagesCache = chatMessagesCache.slice(-100);
+                    }
+                    renderChatMessages();
+                    
+                    const hasOthers = newMsgs.some(m => m.telegram_id != state.telegramId);
+                    if (hasOthers && tg.HapticFeedback) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+                    
+                    const chatView = qs('chatView');
+                    if (chatView && chatView.classList.contains('hidden')) {
+                        unreadChatCount += newMsgs.length;
+                        const badge = qs('chatBadge');
+                        if (badge) badge.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                console.error('pollChatMessages error:', e);
+            }
+        }
+
+        function renderChatMessages() {
+            const container = qs('chatMessages');
+            if (!container) return;
+            
+            if (!chatMessagesCache || chatMessagesCache.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400 fade-in">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                        </div>
+                        <p class="text-sm font-medium">No messages yet</p>
+                        <p class="text-xs mt-1">Be the first to say hello!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            let lastDate = null;
+            let lastSender = null;
+            
+            chatMessagesCache.forEach((msg) => {
+                const msgDate = formatChatDate(msg.created_at);
+                const isNewDay = msgDate !== lastDate;
+                
+                if (isNewDay) {
+                    html += `<div class="flex justify-center my-4"><span class="text-[10px] font-medium bg-gray-200/80 text-gray-500 px-3 py-1 rounded-full">${msgDate}</span></div>`;
+                    lastDate = msgDate;
+                    lastSender = null;
+                }
+                
+                if (msg.type === 'system') {
+                    html += `<div class="flex justify-center my-2 message-bubble"><span class="text-[11px] text-gray-400 italic bg-gray-100/80 px-3 py-1 rounded-full border border-gray-100">${escapeHtml(msg.message)}</span></div>`;
+                    return;
+                }
+                
+                const isMe = String(msg.telegram_id) === String(state.telegramId);
+                const time = formatChatTime(msg.created_at);
+                const initial = (msg.first_name || 'U').charAt(0).toUpperCase();
+                const colorClass = getUserColor(msg.telegram_id);
+                const showAvatar = !isMe && lastSender !== msg.telegram_id;
+                
+                html += `
+                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'} message-bubble mb-1">
+                        ${(!isMe && showAvatar) ? `<div class="w-8 h-8 rounded-full ${colorClass} flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0 shadow-sm mt-auto mb-5">${initial}</div>` : ''}
+                        ${(!isMe && !showAvatar) ? '<div class="w-8 mr-2 flex-shrink-0"></div>' : ''}
+                        
+                        <div class="max-w-[75%] min-w-0">
+                            ${(!isMe && showAvatar) ? `<p class="text-[11px] text-gray-500 mb-0.5 ml-1 truncate font-medium">${escapeHtml(msg.first_name || 'User')}</p>` : ''}
+                            <div class="${isMe ? 'bg-teal-600 text-white rounded-2xl rounded-tr-sm' : 'bg-white text-gray-800 rounded-2xl rounded-tl-sm'} px-4 py-2.5 shadow-sm break-words">
+                                <p class="text-[13px] leading-relaxed katex-chat">${renderMathText(msg.message)}</p>
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-0.5 ${isMe ? 'text-right mr-1' : 'text-left ml-1'}">${time}</p>
+                        </div>
+                    </div>
+                `;
+                
+                lastSender = msg.telegram_id;
+            });
+            
+            container.innerHTML = html;
+            
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 50);
+            
+            if (chatMessagesCache.length > 0) {
+                chatLastId = Math.max(...chatMessagesCache.map(m => parseInt(m.id) || 0));
+            }
+        }
+
+        async function sendChatMessage() {
+            const input = qs('chatInput');
+            const text = input ? input.value.trim() : '';
+            if (!text || text.length > 500) return;
+            
+            if (!state.telegramId) {
+                showError('Not authenticated');
+                return;
+            }
+            
+            if (input) input.value = '';
+            const btn = qs('sendBtn');
+            if (btn) btn.disabled = true;
+            
+            const tempId = 'temp_' + Date.now();
+            const tempMsg = {
+                id: tempId,
+                telegram_id: state.telegramId,
+                first_name: state.user?.first_name || 'You',
+                message: text,
+                created_at: new Date().toISOString(),
+                type: 'text'
+            };
+            chatMessagesCache.push(tempMsg);
+            renderChatMessages();
+            
+            try {
+                const data = await api('send_chat_message', {
+                    telegram_id: state.telegramId,
+                    message: text,
+                    first_name: state.user?.first_name || 'User',
+                    username: state.user?.username || null
+                });
+                
+                if (data.success) {
+                    await loadChatMessages();
+                    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+                } else {
+                    chatMessagesCache = chatMessagesCache.filter(m => String(m.id) !== tempId);
+                    renderChatMessages();
+                    showError(data.error || 'Failed to send message');
+                }
+            } catch (e) {
+                console.error('sendChatMessage error:', e);
+                chatMessagesCache = chatMessagesCache.filter(m => String(m.id) !== tempId);
+                renderChatMessages();
+            }
+            
+            if (btn) btn.disabled = false;
+            if (input) input.focus();
+        }
+
+        async function loadChatStats() {
+            try {
+                const data = await api('get_chat_stats');
+                if (data.success && data.stats) {
+                    const el = qs('chatUserCount');
+                    if (el) el.textContent = data.stats.users || 0;
+                }
+            } catch(e) {
+                console.log('Stats load failed', e);
+            }
+        }
+
+        // ================= INIT =================
+        async function init() {
+            console.log('INIT START');
+            
+            // Safety timeout - force show UI after 4 seconds no matter what
+            setTimeout(() => {
+                const loading = qs('loadingView');
+                if (loading && !loading.classList.contains('hidden')) {
+                    console.log('Safety timeout triggered');
+                    forceShowApp();
+                }
+            }, 4000);
+            
+            try {
+                // Get Telegram user
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    state.user = tg.initDataUnsafe.user;
+                    state.telegramId = state.user.id;
+                    qs('userName').textContent = state.user.first_name;
+                    qs('profileName').textContent = state.user.first_name + (state.user.last_name ? ' ' + state.user.last_name : '');
+                    qs('profileInitial').textContent = state.user.first_name.charAt(0).toUpperCase();
+                } else {
+                    state.telegramId = 'demo_' + Date.now();
+                    state.user = { id: state.telegramId, first_name: 'Demo User', username: 'demo' };
+                    qs('userName').textContent = 'Demo User';
+                    qs('profileName').textContent = 'Demo User';
+                    qs('profileInitial').textContent = 'D';
+                }
+                
+                console.log('Telegram ID:', state.telegramId);
+
+                // Auth with backend
+                try {
+                    const auth = await api('auth', {user: state.user});
+                    if (auth.success && auth.user) {
+                        updateUserDisplay(auth.user);
+                    }
+                } catch (e) {
+                    console.error('Auth error:', e);
+                }
+                
+                // Load topics
+                try {
+                    await loadTopics();
+                } catch (e) {
+                    console.error('Topics error:', e);
+                }
+                
+            } catch (e) {
+                console.error('Init fatal error:', e);
+            }
+            
+            // Always show UI even if API fails
+            console.log('Showing app...');
+            setLoading(false);
+            qs('mainContent').classList.remove('hidden');
+            switchView('home');
+            
+            checkAdminMessage();
+            // Load profile settings
+            loadProfileSettings();
+        }
+
+        function updateUserDisplay(u) {
+            const streak = qs('streakCount');
+            const points = qs('profilePoints');
+            if (streak) streak.textContent = u.streak || 0;
+            if (points) points.textContent = u.xp || 0;
+            state.userStats = u;
+        }
+
+        async function loadTopics() {
+            try {
+                const data = await api('get_questions_admin', {});
+                if (!data.success || !Array.isArray(data.questions)) {
+                    qs('questionCount').textContent = '0 questions';
+                    return;
+                }
+                
+                const topics = {};
+                data.questions.forEach(q => {
+                    if (q.topic) topics[q.topic] = (topics[q.topic] || 0) + 1;
+                });
+                
+                const topicConfig = [
+                    { id: 'Algebra', name: 'Algebra', icon: '📐', color: 'from-blue-500 to-blue-600', desc: 'Equations & polynomials' },
+                    { id: 'Geometry', name: 'Geometry', icon: '📏', color: 'from-teal-500 to-teal-600', desc: 'Shapes & theorems' },
+                    { id: 'Arithmetic', name: 'Arithmetic', icon: '🔢', color: 'from-purple-500 to-purple-600', desc: 'Numbers & operations' },
+                    { id: 'Trigonometry', name: 'Trigonometry', icon: '📊', color: 'from-orange-500 to-orange-600', desc: 'Sin, Cos, Tan' }
+                ];
+                
+                const total = Object.values(topics).reduce((a,b) => a+b, 0);
+                qs('questionCount').textContent = total + ' questions available';
+                
+                const grid = qs('topicsGrid');
+                if (grid) {
+                    grid.innerHTML = topicConfig.map(t => `
+                        <div class="topic-card bg-white rounded-2xl p-4 card-shadow cursor-pointer btn-press" onclick="startQuiz('${t.id}')">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center text-2xl mb-3">
+                                ${t.icon}
+                            </div>
+                            <h4 class="font-bold text-gray-900">${t.name}</h4>
+                            <p class="text-xs text-gray-500 mt-1">${topics[t.id] || 0} questions</p>
+                            <p class="text-xs text-gray-400">${t.desc}</p>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('loadTopics error:', e);
+            }
+        }
+
+        function checkAdminMessage() {
+            // Placeholder
+        }
+
+        function dismissBanner() {
+            const banner = qs('adminBanner');
+            if (banner) banner.classList.add('hidden');
+        }
+
+        // ================= QUIZ =================
+        async function startQuiz(topic) {
+            if (state.loading) return;
+            
+            state.currentTopic = topic;
+            state.currentQuestionIndex = 0;
+            state.correctAnswers = 0;
+            state.wrongAnswers = 0;
+            
+            setLoading(true);
+            try {
+                const data = await api('get_questions', {topic: topic, limit: 5});
+                setLoading(false);
+                
+                if (!data.success || !data.questions || data.questions.length === 0) {
+                    showError('No questions available for this topic');
+                    return;
+                }
+                
+                state.questions = data.questions;
+                switchView('quiz');
+                loadQuestion();
+            } catch (e) {
+                setLoading(false);
+                showError('Failed to load questions');
+            }
+        }
+
+        function startDailyChallenge() {
+            const topics = ['Algebra', 'Geometry', 'Arithmetic', 'Trigonometry'];
+            const random = topics[Math.floor(Math.random() * topics.length)];
+            startQuiz(random);
+        }
+
+        function loadQuestion() {
+            const q = state.questions[state.currentQuestionIndex];
+            state.selectedOption = null;
+            state.hasAnswered = false;
+            
+            qs('topicBadge').textContent = q.topic || 'Topic';
+            qs('difficultyBadge').textContent = q.difficulty || '';
+            qs('questionText').textContent = q.question || 'Question loading...';
+            qs('currentQ').textContent = state.currentQuestionIndex + 1;
+            qs('totalQ').textContent = state.questions.length;
+            qs('progressBar').style.width = ((state.currentQuestionIndex / state.questions.length) * 100) + '%';
+            
+            const container = qs('optionsContainer');
+            container.innerHTML = '';
+            
+            if (q.options && Array.isArray(q.options)) {
+                q.options.forEach((opt, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn w-full border-2 border-gray-200 rounded-xl p-4 text-left flex gap-3 bg-white';
+                    btn.innerHTML = `<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600">${String.fromCharCode(65 + idx)}</span><span class="flex-1">${opt}</span>`;
+                    btn.onclick = () => selectOption(idx, btn);
+                    container.appendChild(btn);
+                });
+            }
+            
+            qs('checkBtn').disabled = true;
+            qs('explainBtn').disabled = true;
+            qs('checkBtn').textContent = 'Check';
+            qs('checkBtn').onclick = checkAnswer;
+            qs('checkBtn').classList.remove('bg-green-600', 'bg-red-600');
+            qs('checkBtn').classList.add('bg-teal-600');
+        }
+
+        function selectOption(index, btn) {
+            if (state.hasAnswered) return;
+            state.selectedOption = index;
+            
+            document.querySelectorAll('.option-btn').forEach(b => {
+                b.classList.remove('selected');
+                b.classList.add('bg-white', 'border-gray-200');
+                b.classList.remove('bg-teal-600', 'text-white', 'border-teal-600');
+            });
+            
+            btn.classList.remove('bg-white', 'border-gray-200');
+            btn.classList.add('selected');
+            
+            qs('checkBtn').disabled = false;
+        }
+
+        function checkAnswer() {
+            if (state.selectedOption === null || state.hasAnswered) return;
+            state.hasAnswered = true;
+            
+            const q = state.questions[state.currentQuestionIndex];
+            const correct = parseInt(q.correct) || 0;
+            const isCorrect = state.selectedOption === correct;
+            
+            document.querySelectorAll('.option-btn').forEach((btn, idx) => {
+                btn.disabled = true;
+                btn.classList.remove('selected');
+                
+                if (idx === correct) {
+                    btn.classList.add('correct');
+                } else if (idx === state.selectedOption && !isCorrect) {
+                    btn.classList.add('wrong');
+                }
+            });
+            
+            const checkBtn = qs('checkBtn');
+            if (isCorrect) {
+                state.correctAnswers++;
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                checkBtn.textContent = '✓ Correct!';
+                checkBtn.classList.remove('bg-teal-600');
+                checkBtn.classList.add('bg-green-600');
+            } else {
+                state.wrongAnswers++;
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                checkBtn.textContent = '✗ Wrong';
+                checkBtn.classList.remove('bg-teal-600');
+                checkBtn.classList.add('bg-red-600');
+            }
+            
+            qs('explainBtn').disabled = false;
+            checkBtn.onclick = nextQuestion;
+            
+            setTimeout(() => {
+                checkBtn.classList.remove('bg-green-600', 'bg-red-600');
+                checkBtn.classList.add('bg-teal-600');
+                checkBtn.textContent = 'Next →';
+            }, 1000);
+        }
+
+        function showExplanation() {
+            const q = state.questions[state.currentQuestionIndex];
+            qs('explanationContent').innerHTML = `
+                <div class="mb-4">
+                    <p class="font-bold text-gray-900 mb-2">Question:</p>
+                    <p class="text-gray-600">${q.question || ''}</p>
+                </div>
+                <div class="mb-4">
+                    <p class="font-bold text-gray-900 mb-2">Correct Answer:</p>
+                    <p class="text-green-600 font-medium">${q.options ? q.options[q.correct] : ''}</p>
+                </div>
+                <div>
+                    <p class="font-bold text-gray-900 mb-2">Explanation:</p>
+                    <p class="text-gray-600 leading-relaxed">${q.explanation || 'No explanation provided.'}</p>
+                </div>
+            `;
+            switchView('explanation');
+        }
+
+        function backToQuiz() {
+            switchView('quiz');
+        }
+
+        async function nextQuestion() {
+            state.currentQuestionIndex++;
+            
+            if (state.currentQuestionIndex >= state.questions.length) {
+                await finishQuiz();
+                return;
+            }
+            
+            if (qs('explanationView').classList.contains('hidden')) {
+                loadQuestion();
+            } else {
+                switchView('quiz');
+                loadQuestion();
+            }
+        }
+
+        async function finishQuiz() {
+            const total = state.questions.length;
+            const accuracy = total > 0 ? Math.round((state.correctAnswers / total) * 100) : 0;
+            const points = state.correctAnswers * 10;
+            
+            setLoading(true);
+            try {
+                await api('submit_quiz', {
+                    results: {
+                        topic: state.currentTopic,
+                        correct: state.correctAnswers,
+                        wrong: state.wrongAnswers,
+                        total: total,
+                        accuracy: accuracy,
+                        questions: state.questions.map(q => q.id)
+                    }
+                });
+            } catch (e) {
+                console.error('submit error:', e);
+            }
+            setLoading(false);
+            
+            qs('finalScore').textContent = state.correctAnswers + '/' + total;
+            qs('accuracyBar').style.width = accuracy + '%';
+            qs('accuracyText').textContent = accuracy + '% accuracy';
+            qs('correctCount').textContent = state.correctAnswers;
+            qs('wrongCount').textContent = state.wrongAnswers;
+            qs('pointsValue').textContent = points;
+            qs('pointsEarned').classList.remove('hidden');
+            
+            let msg = 'Keep practicing!';
+            let icon = '🏆';
+            if (accuracy === 100) { msg = 'Perfect score! Amazing!'; icon = '🌟'; }
+            else if (accuracy >= 80) { msg = 'Great job!'; icon = '🎉'; }
+            else if (accuracy >= 60) { msg = 'Good effort!'; icon = '👍'; }
+            else { msg = 'Keep practicing!'; icon = '💪'; }
+            
+            qs('resultMessage').textContent = msg;
+            qs('resultIcon').textContent = icon;
+            
+            if (accuracy >= 80) createConfetti();
+            
+            switchView('results');
+        }
+
+        function createConfetti() {
+            const colors = ['#0D7377', '#14A085', '#FFD700', '#FF6B6B', '#4ECDC4'];
+            for (let i = 0; i < 50; i++) {
+                const c = document.createElement('div');
+                c.className = 'confetti';
+                c.style.left = Math.random() * 100 + 'vw';
+                c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                c.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                document.body.appendChild(c);
+                setTimeout(() => c.remove(), 4000);
+            }
+        }
+
+        function retryQuiz() {
+            startQuiz(state.currentTopic);
+        }
+
+        // ================= NAVIGATION =================
+        function switchView(view) {
+            console.log('Switching to:', view);
+            
+            const allViews = ['homeView', 'quizView', 'explanationView', 'resultsView', 'profileView', 'leaderboardView', 'chatView'];
+            
+            allViews.forEach(v => {
+                const el = document.getElementById(v);
+                if (el) {
+                    el.classList.add('hidden');
+                    if (v === 'chatView') el.classList.remove('flex');
+                }
+            });
+            
+            const target = document.getElementById(view + 'View');
+            if (target) {
+                target.classList.remove('hidden');
+                if (view === 'chat') target.classList.add('flex');
+            }
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const isActive = btn.dataset.view === view;
+                btn.classList.toggle('text-teal-600', isActive);
+                btn.classList.toggle('text-gray-400', !isActive);
+            });
+            
+            if (view === 'profile') loadProfile();
+            if (view === 'leaderboard') loadLeaderboard();
+            
+            if (view === 'chat') {
+                initChat();
+            } else {
+                if (chatInterval) { 
+                    clearInterval(chatInterval); 
+                    chatInterval = null; 
+                }
+            }
+        }
+
+        function goHome() {
+            switchView('home');
+        }
+
+        // ================= PROFILE =================
+        async function loadProfile() {
+            try {
+                const data = await api('get_profile');
+                if (!data.success) return;
+                
+                const u = data.user || {};
+                const totalQ = (u.total_correct || 0) + (u.total_wrong || 0);
+                qs('totalAnswered').textContent = totalQ;
+                qs('bestStreak').textContent = u.best_streak || 0;
+                qs('topicsCompleted').textContent = data.topics_completed || 0;
+                qs('accuracyRate').textContent = (data.accuracy || 0) + '%';
+                qs('profilePoints').textContent = u.xp || 0;
+                
+                const achievements = [];
+                if ((u.streak || 0) >= 7) achievements.push({icon: '🔥', name: 'Week Warrior', desc: '7 day streak'});
+                if ((u.streak || 0) >= 30) achievements.push({icon: '📅', name: 'Monthly Master', desc: '30 day streak'});
+                if ((u.total_quizzes || 0) >= 10) achievements.push({icon: '📚', name: 'Quiz Taker', desc: '10 quizzes completed'});
+                if ((data.accuracy || 0) >= 90) achievements.push({icon: '🎯', name: 'Sharp Shooter', desc: '90% accuracy'});
+                if ((u.xp || 0) >= 1000) achievements.push({icon: '💎', name: 'Point Hoarder', desc: '1000 XP earned'});
+                
+                if (achievements.length === 0) achievements.push({icon: '🌱', name: 'Getting Started', desc: 'Complete your first quiz'});
+                
+                qs('achievementsList').innerHTML = achievements.map(a => `
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                        <span class="text-2xl">${a.icon}</span>
+                        <div>
+                            <p class="font-semibold text-sm">${a.name}</p>
+                            <p class="text-xs text-gray-500">${a.desc}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('loadProfile error:', e);
+            }
+        }
+
+        // ================= LEADERBOARD =================
+        async function loadLeaderboard() {
+            try {
+                const data = await api('get_leaderboard');
+                if (!data.success) return;
+                
+                const list = qs('leaderboardList');
+                let userRank = '--';
+                let userPoints = state.userStats ? (state.userStats.xp || 0) : 0;
+                
+                if (data.leaderboard && Array.isArray(data.leaderboard)) {
+                    data.leaderboard.forEach((u, i) => {
+                        if (String(u.telegram_id) === String(state.telegramId)) userRank = '#' + (i + 1);
+                    });
+                    
+                    qs('userRank').textContent = userRank;
+                    qs('userPoints').textContent = userPoints + ' pts';
+                    
+                    list.innerHTML = data.leaderboard.slice(0, 20).map((u, i) => `
+                        <div class="flex items-center gap-4 p-4 ${String(u.telegram_id) === String(state.telegramId) ? 'bg-teal-50' : 'hover:bg-gray-50'}">
+                            <div class="w-8 text-center font-bold ${i < 3 ? 'text-yellow-600' : 'text-gray-400'}">
+                                ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                            </div>
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${u.first_name || 'user'}" class="w-10 h-10 rounded-full bg-gray-100">
+                            <div class="flex-1">
+                                <p class="font-semibold text-sm ${String(u.telegram_id) === String(state.telegramId) ? 'text-teal-700' : 'text-gray-900'}">
+                                    ${u.first_name || 'User'} ${String(u.telegram_id) === String(state.telegramId) ? '(You)' : ''}
+                                </p>
+                                <p class="text-xs text-gray-500">@${u.username || 'user'}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-teal-600">${u.xp || 0}</p>
+                                <p class="text-xs text-gray-400">${u.streak || 0}🔥</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('loadLeaderboard error:', e);
+            }
+        }
+
+        // ================= NOTIFICATIONS =================
+        function showNotifications() {
+            qs('notificationsPanel').classList.remove('hidden');
+        }
+
+        function hideNotifications() {
+            qs('notificationsPanel').classList.add('hidden');
+        }
+
+        function clearNotifications() {
+            qs('notificationsList').innerHTML = `
+                <div class="text-center py-8 text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                    </svg>
+                    <p class="text-sm">No notifications</p>
+                </div>
+            `;
+        }
+
+        // ================= START =================
+        console.log('Script loaded, starting init...');
+        init();
+    </script>
+</body>
+</html>

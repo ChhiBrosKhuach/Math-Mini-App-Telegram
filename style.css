@@ -1,0 +1,434 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+* {
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #0D7377;
+    --primary-light: #14A085;
+    --primary-dark: #0a5c5f;
+    --accent: #F97316;
+    --bg: #F2F4F3;
+    --surface: #FFFFFF;
+    --text: #111827;
+    --text-muted: #6B7280;
+    --border: #E5E7EB;
+    --danger: #EF4444;
+    --success: #10B981;
+    --gold: #F59E0B;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.1), 0 4px 8px rgba(0,0,0,0.04);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --radius-xl: 24px;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ========== ANIMATIONS ========== */
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes messagePop {
+    from { transform: scale(0.85); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+}
+@keyframes badgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+@keyframes skeleton {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+@keyframes confetti-fall {
+    0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+@keyframes xpFill {
+    from { width: 0; }
+    to { width: var(--xp-width, 0%); }
+}
+@keyframes achievementSlide {
+    0% { transform: translateX(110%); opacity: 0; }
+    15% { transform: translateX(0); opacity: 1; }
+    85% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(110%); opacity: 0; }
+}
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+@keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes gradientMove {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ========== UTILITY ========== */
+.fade-in { animation: fadeIn 0.35s ease-out both; }
+.slide-in { animation: slideIn 0.3s ease-out both; }
+.slide-up { animation: slideUp 0.35s ease-out both; }
+.message-bubble { animation: messagePop 0.25s ease-out both; }
+.bounce-in { animation: bounceIn 0.5s cubic-bezier(0.68,-0.55,0.27,1.55) both; }
+.streak-pulse { animation: pulse 2s ease-in-out infinite; }
+.notification-badge { animation: badgePulse 2s ease-in-out infinite; }
+
+.btn-press:active { transform: scale(0.95); transition: transform 0.1s; }
+
+.card-shadow { box-shadow: var(--shadow-md); }
+
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton 1.5s infinite;
+    border-radius: var(--radius);
+}
+
+.confetti {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    pointer-events: none;
+    animation: confetti-fall 3s ease-out forwards;
+    z-index: 9999;
+}
+
+/* ========== COLORS ========== */
+.bg-primary { background-color: var(--primary); }
+.text-primary { color: var(--primary); }
+
+/* ========== OPTIONS ========== */
+.option-btn {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.option-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: rgba(0,0,0,0.05);
+    transition: opacity 0.15s;
+}
+.option-btn:active::after { opacity: 1; }
+
+.option-btn.selected {
+    background-color: #EEF9F9;
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.option-btn.correct {
+    background: linear-gradient(135deg, #D1FAE5, #A7F3D0);
+    border-color: var(--success);
+    color: #065F46;
+}
+.option-btn.wrong {
+    background: linear-gradient(135deg, #FEE2E2, #FECACA);
+    border-color: var(--danger);
+    color: #7F1D1D;
+}
+
+/* ========== TOPIC CARD ========== */
+.topic-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+}
+.topic-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+.topic-card:active { transform: scale(0.97); }
+
+/* ========== XP BAR ========== */
+.xp-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+}
+.xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    border-radius: 99px;
+    transition: width 1s ease;
+    animation: xpFill 1s ease forwards;
+}
+
+/* ========== ACHIEVEMENT TOAST ========== */
+.achievement-toast {
+    position: fixed;
+    top: 80px;
+    right: 16px;
+    z-index: 9999;
+    max-width: 280px;
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: achievementSlide 4s ease forwards;
+    pointer-events: none;
+}
+.achievement-toast-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+.achievement-toast-bar {
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold), #FBBF24);
+    border-radius: 99px;
+    margin-top: 8px;
+    animation: xpFill 4s linear forwards;
+}
+
+/* ========== LEVEL BADGE ========== */
+.level-badge {
+    background: linear-gradient(135deg, var(--gold), #FBBF24);
+    color: #78350F;
+    font-weight: 800;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(245,158,11,0.35);
+    border: 2px solid white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* ========== SHIMMER BUTTON ========== */
+.shimmer-btn {
+    background: linear-gradient(270deg, var(--primary-dark), var(--primary), var(--primary-light), var(--primary));
+    background-size: 300% 100%;
+    animation: gradientMove 3s ease infinite;
+}
+
+/* ========== CHAT ========== */
+#chatView.hidden { display: none !important; }
+#chatView {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+#chatMessages {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+#chatLoading { backdrop-filter: blur(4px); }
+
+/* ========== INPUTS ========== */
+input, textarea, select { font-size: 16px; }
+button { --webkit-appearance: none; }
+button[type="button"] { border-radius: 9999px; }
+input { border-radius: 1rem; }
+
+/* ========== SAFE AREA ========== */
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 12px); }
+
+/* ========== MATH ========== */
+.katex-chat .katex { font-size: 1em; line-height: 1.2; }
+.katex-chat .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
+.katex-chat .katex-display::-webkit-scrollbar { height: 2px; }
+.katex-chat .katex-display::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
+
+/* ========== USERNAME ========== */
+.username-tap {
+    cursor: pointer;
+    transition: all 0.25s ease;
+    padding: 1px 6px;
+    margin-left: -2px;
+    border-radius: 6px;
+    display: inline-block;
+    font-weight: 600;
+}
+.username-tap:active { transform: scale(0.95); }
+.username-tapped {
+    color: #B45309 !important;
+    background: linear-gradient(135deg, rgba(255,215,0,0.25), rgba(255,180,0,0.15));
+    text-shadow: 0 0 12px rgba(255,215,0,0.5), 0 0 4px rgba(255,215,0,0.3);
+    box-shadow: 0 0 0 1px rgba(255,215,0,0.4);
+    font-weight: 700 !important;
+    transform: scale(1.05);
+}
+.name-gradient {
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    --webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.name-clean { color: #111827; font-weight: 700; }
+.name-glow {
+    color: #00f5a0;
+    text-shadow: 0 0 5px #00f5a0, 0 0 10px #00f5a0;
+}
+
+/* ========== RANK BADGES ========== */
+.rank-1 { background: linear-gradient(135deg, #FEF08A, #FDE047); color: #713F12; }
+.rank-2 { background: linear-gradient(135deg, #E2E8F0, #CBD5E1); color: #1E293B; }
+.rank-3 { background: linear-gradient(135deg, #FED7AA, #FDBA74); color: #7C2D12; }
+
+/* ========== PROGRESS RING ========== */
+.progress-ring-circle {
+    transition: stroke-dashoffset 1s ease;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+/* ========== ACHIEVEMENT LOCKED ========== */
+.achievement-locked { opacity: 0.45; filter: grayscale(1); }
+
+/* ========== SCROLL BAR ========== */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+
+/* ========== MATH HELPER ========== */
+#mathHelper {
+    scrollbar-width: none;
+    overflow-x: auto;
+}
+#mathHelper::-webkit-scrollbar { display: none; }
+
+/* ========== QUIZ TIMER ========== */
+.timer-ring { transition: stroke-dashoffset 1s linear; }
+.timer-ring.urgent { stroke: var(--danger); animation: pulse 0.5s ease-in-out infinite; }
+
+/* ========== DAILY STREAK DOTS ========== */
+.streak-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+.streak-dot.active {
+    background: linear-gradient(135deg, var(--accent), #EA580C);
+    color: white;
+    box-shadow: 0 2px 8px rgba(249,115,22,0.4);
+}
+.streak-dot.done {
+    background: var(--primary);
+    color: white;
+}
+.streak-dot.inactive {
+    background: var(--border);
+    color: var(--text-muted);
+}
+
+/* ========== STAT CARD ========== */
+.stat-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    text-align: center;
+    transition: transform 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); }
+
+/* ========== GLOWING RING ========== */
+.glow-ring {
+    box-shadow: 0 0 0 3px rgba(13,115,119,0.15), 0 0 0 6px rgba(13,115,119,0.07);
+}
+/* ========== PROFILE HERO IMPROVEMENTS ========== */
+.profile-hero-xp-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 99px;
+    overflow: hidden;
+}
+.profile-hero-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #FDE047, #FBBF24);
+    border-radius: 99px;
+    transition: width 1s ease;
+}
+
+/* ========== CHAT IMPROVEMENTS ========== */
+.chat-input-bar {
+    background: rgba(242,244,243,0.97);
+    backdrop-filter: blur(12px);
+}
+
+/* Message bubbles with tighter spacing */
+.msg-mine {
+    background: linear-gradient(135deg, #0D7377, #14A085);
+    border-bottom-right-radius: 4px !important;
+    box-shadow: 0 2px 8px rgba(13,115,119,0.25);
+}
+.msg-theirs {
+    background: #FFFFFF;
+    border-bottom-left-radius: 4px !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border: 1px solid #F3F4F6;
+}
+
+/* Chat avatar — rounded square style */
+.chat-avatar {
+    border-radius: 12px;
+}
+
+/* Teal level pill in chat */
+.lv-pill {
+    font-size: 9px;
+    font-weight: 700;
+    background: #EEF9F9;
+    color: #0D7377;
+    border: 1px solid #B2E5E6;
+    padding: 2px 6px;
+    border-radius: 999px;
+    line-height: 1;
+}
+
+/* Profile stat card icon */
+.stat-icon-card {
+    transition: transform 0.2s ease;
+}
+.stat-icon-card:hover { transform: translateY(-3px); }
