@@ -53,13 +53,139 @@
                 <button onclick="mentionUser()" class="flex-1 bg-teal-600 text-white py-3 rounded-2xl font-semibold btn-press">
                     @ Mention
                 </button>
-                <button onclick="openFullProfile()" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-2xl font-semibold btn-press">
+                <button onclick="openViewUserProfile(selectedUser)" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-2xl font-semibold btn-press">
                     View Profile
                 </button>
             </div>
             <button onclick="closeProfile()" class="w-full py-2 text-gray-400 text-sm">
                 Close
             </button>
+        </div>
+    </div>
+
+    <!-- ========== VIEW OTHER USER PROFILE MODAL (full sheet) ========== -->
+    <div id="viewUserProfileModal" class="hidden fixed inset-0 z-[65] bg-black/50 flex items-end">
+        <div class="bg-white w-full rounded-t-3xl slide-in" style="max-height:88vh;overflow-y:auto;max-width:448px;margin:0 auto;">
+            <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-0"></div>
+            <!-- Hero Banner -->
+            <div id="vupm-hero" class="relative overflow-hidden mx-4 mt-4 rounded-3xl mb-4" style="background:linear-gradient(135deg,#0D7377 0%,#14A085 60%,#0a5c5f 100%);min-height:140px;">
+                <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none"></div>
+                <div class="absolute -bottom-4 -left-4 w-20 h-20 rounded-full bg-black/10 pointer-events-none"></div>
+                <div class="relative z-10 p-5 flex items-end gap-4">
+                    <div class="relative flex-shrink-0">
+                        <div id="vupm-avatar" class="w-16 h-16 rounded-2xl bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-2xl font-extrabold overflow-hidden"></div>
+                        <div id="vupm-lvbadge" class="absolute -bottom-2 -right-2 level-badge text-xs px-2 py-0.5 shadow-lg">Lv 1</div>
+                    </div>
+                    <div class="flex-1 min-w-0 pb-1">
+                        <h2 id="vupm-name" class="text-white text-lg font-extrabold leading-tight">User</h2>
+                        <p id="vupm-title" class="text-white/70 text-xs mt-0.5">Member</p>
+                        <div class="mt-2 inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full">
+                            <span class="text-yellow-300 text-sm">⭐</span>
+                            <span id="vupm-xp" class="text-white font-extrabold text-sm">0</span>
+                            <span class="text-white/70 text-xs">XP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-2 px-4 mb-4">
+                <div class="stat-card"><p class="font-bold text-lg text-teal-600" id="vupm-points">0</p><p class="text-xs text-gray-500">XP</p></div>
+                <div class="stat-card"><p class="font-bold text-lg text-orange-500" id="vupm-streak">0</p><p class="text-xs text-gray-500">Streak 🔥</p></div>
+                <div class="stat-card"><p class="font-bold text-lg text-purple-600" id="vupm-rank">--</p><p class="text-xs text-gray-500">Rank</p></div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 px-4 mb-4">
+                <div class="stat-card"><p class="font-bold text-base text-gray-800" id="vupm-quizzes">0</p><p class="text-xs text-gray-500">Quizzes</p></div>
+                <div class="stat-card"><p class="font-bold text-base text-gray-800" id="vupm-accuracy">0%</p><p class="text-xs text-gray-500">Accuracy</p></div>
+            </div>
+            <!-- Topic mastery -->
+            <div class="px-4 mb-4">
+                <p class="text-xs font-bold text-gray-500 uppercase mb-2">Topic Performance</p>
+                <div id="vupm-topics" class="space-y-2"></div>
+            </div>
+            <!-- Achievements row -->
+            <div class="px-4 mb-4">
+                <p class="text-xs font-bold text-gray-500 uppercase mb-2">Achievements</p>
+                <div id="vupm-achievements" class="flex flex-wrap gap-2"></div>
+            </div>
+            <!-- Actions -->
+            <div class="flex gap-2 px-4 pb-6">
+                <button onclick="vupmMention()" class="flex-1 bg-teal-600 text-white py-3 rounded-2xl font-semibold btn-press">@ Mention</button>
+                <button onclick="closeViewUserProfile()" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-2xl font-semibold btn-press">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== CREATE QUIZ MODAL ========== -->
+    <div id="createQuizModal" class="hidden fixed inset-0 z-[65] bg-black/50 flex items-end">
+        <div class="bg-white w-full rounded-t-3xl p-5 slide-in" style="max-height:92vh;overflow-y:auto;max-width:448px;margin:0 auto;">
+            <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="font-extrabold text-lg">✏️ Create Quiz</h2>
+                <button onclick="closeCreateQuiz()" class="text-gray-400 text-xl">✕</button>
+            </div>
+            <!-- Question -->
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">Question <span class="text-red-400">*</span></label>
+                <div class="bg-gray-50 rounded-2xl border border-gray-200 p-3">
+                    <textarea id="cqQuestion" rows="3" placeholder="Type your math question here. Use $x^2$ for inline math or $$\frac{a}{b}$$ for display math." class="w-full bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none resize-none"></textarea>
+                    <!-- Math preview -->
+                    <div id="cqQuestionPreview" class="mt-2 pt-2 border-t border-gray-100 text-sm text-gray-700 katex-chat hidden"></div>
+                </div>
+                <!-- Math helper -->
+                <div class="flex gap-1.5 flex-wrap mt-2">
+                    <span class="text-[10px] text-gray-400 font-semibold self-center">Quick:</span>
+                    <button onclick="cqInsertMath('cqQuestion','x^2')" class="text-xs bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded-lg font-semibold">x²</button>
+                    <button onclick="cqInsertMath('cqQuestion','\\sqrt{x}')" class="text-xs bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded-lg font-semibold">√x</button>
+                    <button onclick="cqInsertMath('cqQuestion','\\frac{a}{b}')" class="text-xs bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded-lg font-semibold">a/b</button>
+                    <button onclick="cqInsertMath('cqQuestion','\\pi')" class="text-xs bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded-lg font-semibold">π</button>
+                    <button onclick="cqInsertMath('cqQuestion','\\theta')" class="text-xs bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded-lg font-semibold">θ</button>
+                    <button onclick="cqInsertMath('cqQuestion','\\sum_{i=1}^{n}')" class="text-xs bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded-lg font-semibold">∑</button>
+                </div>
+            </div>
+            <!-- Options -->
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">Answer Options <span class="text-red-400">*</span></label>
+                <div class="space-y-2" id="cqOptionsContainer">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+            <!-- Correct Answer -->
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">Correct Answer</label>
+                <select id="cqCorrect" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 focus:outline-none focus:border-teal-400">
+                    <option value="0">A — Option 1</option>
+                    <option value="1">B — Option 2</option>
+                    <option value="2">C — Option 3</option>
+                    <option value="3">D — Option 4</option>
+                </select>
+            </div>
+            <!-- Topic -->
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">Topic</label>
+                <select id="cqTopic" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 focus:outline-none focus:border-teal-400">
+                    <option value="Algebra">Algebra</option>
+                    <option value="Geometry">Geometry</option>
+                    <option value="Arithmetic">Arithmetic</option>
+                    <option value="Trigonometry">Trigonometry</option>
+                    <option value="Fun">Fun :)</option>
+                    <option value="Fun">History</option>
+                    <option value="Fun">Interview</option>
+                </select>
+            </div>
+            <!-- Explanation (optional) -->
+            <div class="mb-5">
+                <label class="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">Explanation <span class="text-gray-400 font-normal">(optional)</span></label>
+                <textarea id="cqExplanation" rows="2" placeholder="Explain why the correct answer is right..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-teal-400 resize-none"></textarea>
+            </div>
+            <!-- Preview box -->
+            <div id="cqPreviewBox" class="hidden mb-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                <p class="text-xs font-bold text-blue-600 uppercase mb-2">📋 Preview</p>
+                <div id="cqPreviewContent" class="text-sm text-gray-700 katex-chat"></div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="previewCreateQuiz()" class="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-2xl font-semibold btn-press">Preview</button>
+                <button id="cqSubmitBtn" onclick="submitCreateQuiz()" class="flex-1 bg-teal-600 text-white py-3.5 rounded-2xl font-bold btn-press shadow-md shadow-teal-200/50">Submit Quiz</button>
+            </div>
         </div>
     </div>
 
@@ -184,8 +310,8 @@
                                 <span id="dailyCompleted" class="hidden bg-white/25 px-2 py-0.5 rounded-full text-xs font-bold">✓ Done</span>
                             </div>
 
-                            <h2 class="text-xl font-extrabold mb-1">Challenge your skills!</h2>
-                            <p class="text-xs opacity-75 mb-4">Complete today's challenge to maintain your streak</p>
+                            <h2 id="dailyChallengeTitle" class="text-xl font-extrabold mb-1">Challenge your skills!</h2>
+                            <p class="text-xs opacity-75 mb-4" id="dailyChallengeDesc">Complete today's challenge to maintain your streak</p>
 
                             <div class="flex items-center gap-2">
                                 <button onclick="startDailyChallenge()" id="dailyBtn" class="bg-white text-teal-700 px-5 py-2 rounded-xl font-bold text-sm btn-press shadow-lg">
@@ -232,6 +358,31 @@
                     <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
                     <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
                     <div class="bg-white rounded-2xl p-4 h-32 skeleton"></div>
+                </div>
+
+                <!-- Online Topic Section -->
+                <div class="mb-5">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-base">🌐 Online Topic</h3>
+                        <span class="text-[10px] bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full border border-green-200">Community</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-3">Quizzes created by fellow students. Only +5 XP per correct answer, streaks unaffected.</p>
+                    <div id="onlineTopicsGrid" class="space-y-2">
+                        <div class="bg-white rounded-2xl p-3 h-16 skeleton"></div>
+                        <div class="bg-white rounded-2xl p-3 h-16 skeleton"></div>
+                    </div>
+                </div>
+
+                <!-- Create Quiz button (visible for level 3+) -->
+                <div id="createQuizBanner" class="hidden mb-5">
+                    <button onclick="openCreateQuiz()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl p-4 font-bold text-sm btn-press shadow-lg shadow-indigo-200/50 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl flex-shrink-0">➕</div>
+                        <div class="flex-1 text-left">
+                            <p class="font-extrabold">Create a Quiz</p>
+                            <p class="text-xs opacity-75 mt-0.5">Submit your question for the community</p>
+                        </div>
+                        <span class="text-xs bg-white/20 px-2 py-1 rounded-lg">Lv 3+</span>
+                    </button>
                 </div>
 
                 <!-- Recent Activity -->
@@ -440,12 +591,40 @@
                 </div>
 
                 <!-- Topic Mastery -->
-                <div class="bg-white rounded-2xl p-4 card-shadow">
+                <div class="bg-white rounded-2xl p-4 card-shadow mb-4">
                     <div class="flex items-center gap-2 mb-3">
                         <h3 class="font-bold text-sm">Topic Mastery</h3>
                         <span class="text-xs">🏆</span>
                     </div>
                     <div id="topicMastery" class="space-y-3"></div>
+                </div>
+
+                <!-- Privacy Settings -->
+                <div class="bg-white rounded-2xl p-4 card-shadow mb-4">
+                    <h3 class="font-bold text-sm mb-3">⚙️ Settings</h3>
+                    <div class="space-y-3">
+                        <!-- Private Profile Toggle -->
+                        <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1.5 mb-0.5">
+                                    <span class="text-sm">🔒</span>
+                                    <p class="text-sm font-bold text-gray-800">Private Profile</p>
+                                </div>
+                                <p class="text-[11px] text-gray-400 leading-snug">Hide your profile stats from other users</p>
+                            </div>
+                            <button id="privacyToggleBtn" onclick="togglePrivacyMode()" type="button"
+                                class="relative w-12 h-6 rounded-full transition-all duration-300 flex-shrink-0 focus:outline-none"
+                                style="background:#E5E7EB;" aria-label="Toggle privacy">
+                                <span id="privacyToggleThumb"
+                                    class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300"></span>
+                            </button>
+                        </div>
+                        <!-- Privacy explanation -->
+                        <div id="privacyExplainer" class="hidden p-3 bg-amber-50 rounded-xl border border-amber-100">
+                            <p class="text-xs text-amber-700 font-semibold">🔒 Private mode is ON</p>
+                            <p class="text-[11px] text-amber-600 mt-1">Your profile shows as "Private User" to others. Stats, achievements and streaks are hidden.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -482,7 +661,7 @@
                 </div>
 
                 <!-- Full List -->
-                <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                <div class="bg-white rounded-2xl card-shadow overflow-hidden mt-2">
                     <div id="leaderboardList" class="divide-y divide-gray-50"></div>
                 </div>
             </div>
@@ -512,6 +691,10 @@
                                 <span class="text-sm">🔢</span>
                                 <span class="text-xs text-gray-500 font-semibold">Math Chat</span>
                             </div>
+                            <!-- Chat Style Button -->
+                            <button onclick="openChatStyleModal()" class="w-9 h-9 rounded-xl bg-white card-shadow flex items-center justify-center btn-press" title="Customize chat style" type="button">
+                                <span class="text-base" id="chatStyleBtnIcon">🎨</span>
+                            </button>
                         </div>
                     </div>
                     <div class="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mx-4"></div>
@@ -582,6 +765,124 @@
                 </div>
             </div>
 
+            <!-- ======= CREATOR VIEW ======= -->
+            <div id="creatorView" class="hidden fade-in overflow-y-auto pb-4">
+
+                <!-- Locked State (shown for level < 3) -->
+                <div id="creatorLocked" class="hidden flex flex-col items-center justify-center py-16 text-center px-6">
+                    <div class="w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center text-4xl mb-5 shadow-inner">🔒</div>
+                    <h2 class="font-extrabold text-xl text-gray-800 mb-2">Creator Studio</h2>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-5">Reach <span class="font-bold text-indigo-600">Level 3</span> to unlock the Creator Studio and start building quizzes for the community.</p>
+                    <div class="bg-white rounded-2xl p-4 card-shadow w-full max-w-xs mb-4">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="text-2xl">⭐</div>
+                            <div class="flex-1">
+                                <p class="text-xs text-gray-400 font-medium">Your progress</p>
+                                <p class="font-bold text-sm text-gray-800" id="creatorLockLevelText">Level 1 of 3 needed</p>
+                            </div>
+                        </div>
+                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div id="creatorLockBar" class="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-700" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <button onclick="switchView('home')" class="bg-teal-600 text-white px-6 py-3 rounded-2xl font-bold btn-press shadow-md shadow-teal-200/50 text-sm">Practice Now →</button>
+                </div>
+
+                <!-- Unlocked Creator Content -->
+                <div id="creatorUnlocked" class="hidden">
+                    <!-- Hero Banner -->
+                    <div class="relative overflow-hidden rounded-3xl p-5 text-white mb-5 card-shadow" style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 60%,#a855f7 100%);min-height:120px;">
+                        <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none"></div>
+                        <div class="absolute -bottom-4 -left-4 w-20 h-20 rounded-full bg-black/10 pointer-events-none"></div>
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-xl">✨</span>
+                                <span class="text-xs font-bold uppercase tracking-wider opacity-80">Creator Studio</span>
+                            </div>
+                            <h2 class="text-xl font-extrabold mb-0.5">Your Quizzes</h2>
+                            <p class="text-xs opacity-75 mb-4">Build questions · Track performance · Help others learn</p>
+                            <!-- Create button — placed inside flow, not absolute, to prevent overlap -->
+                            <button onclick="openCreateQuiz()" id="creatorCreateBtn" class="inline-flex items-center gap-1.5 bg-white text-indigo-700 px-4 py-2 rounded-xl font-bold text-sm btn-press shadow-lg">
+                                <span>➕</span> Create Quiz
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Daily Limit Indicator -->
+                    <div id="creatorDailyLimit" class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 mb-4 flex items-center gap-3">
+                        <span class="text-xl">⏰</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-bold text-amber-800">Daily Quiz Limit</p>
+                            <p class="text-xs text-amber-600 mt-0.5" id="creatorDailyText">You can submit 1 quiz per day</p>
+                        </div>
+                        <div id="creatorDailyBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-200 text-amber-800">0/1</div>
+                    </div>
+
+                    <!-- Overall Stats Row -->
+                    <div class="grid grid-cols-3 gap-2 mb-5">
+                        <div class="bg-white rounded-2xl p-3 card-shadow text-center">
+                            <p class="text-lg font-extrabold text-indigo-600" id="cstTotalQuizzes">0</p>
+                            <p class="text-[10px] text-gray-400 font-medium">My Quizzes</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-3 card-shadow text-center">
+                            <p class="text-lg font-extrabold text-green-600" id="cstApproved">0</p>
+                            <p class="text-[10px] text-gray-400 font-medium">Approved</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-3 card-shadow text-center">
+                            <p class="text-lg font-extrabold text-orange-500" id="cstPending">0</p>
+                            <p class="text-[10px] text-gray-400 font-medium">Pending</p>
+                        </div>
+                    </div>
+
+                    <!-- Aggregate Analytics (only shown if has approved quizzes) -->
+                    <div id="creatorAnalyticsSection" class="hidden bg-white rounded-2xl p-4 card-shadow mb-5">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-base">📊</span>
+                            <h3 class="font-bold text-sm">Community Analytics</h3>
+                            <span class="text-[10px] bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full border border-green-200 ml-auto">Live</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mb-4">
+                            <div class="bg-indigo-50 rounded-xl p-3 text-center">
+                                <p class="text-xl font-extrabold text-indigo-600" id="cstTotalViews">0</p>
+                                <p class="text-[10px] text-gray-500 font-medium">👁 Total Views</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-xl p-3 text-center">
+                                <p class="text-xl font-extrabold text-blue-600" id="cstTotalAnswers">0</p>
+                                <p class="text-[10px] text-gray-500 font-medium">✏️ Total Answers</p>
+                            </div>
+                            <div class="bg-green-50 rounded-xl p-3 text-center">
+                                <p class="text-xl font-extrabold text-green-600" id="cstTotalCorrect">0</p>
+                                <p class="text-[10px] text-gray-500 font-medium">✅ Correct</p>
+                            </div>
+                            <div class="bg-red-50 rounded-xl p-3 text-center">
+                                <p class="text-xl font-extrabold text-red-500" id="cstTotalWrong">0</p>
+                                <p class="text-[10px] text-gray-500 font-medium">❌ Wrong</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+                                <p class="text-base font-extrabold text-gray-800" id="cstAvgTime">--</p>
+                                <p class="text-[10px] text-gray-500 font-medium">⏱ Avg Time (s)</p>
+                            </div>
+                            <div class="bg-teal-50 rounded-xl p-3 text-center border border-teal-100">
+                                <p class="text-base font-extrabold text-teal-700" id="cstAvgScore">--%</p>
+                                <p class="text-[10px] text-gray-500 font-medium">🎯 Avg Score</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- My Quizzes List -->
+                    <h3 class="font-bold text-sm mb-3 flex items-center gap-2">
+                        <span>📋</span> My Quiz Submissions
+                        <button onclick="loadCreatorView()" class="ml-auto text-[10px] text-teal-600 font-bold bg-teal-50 border border-teal-100 px-2 py-1 rounded-lg">Refresh</button>
+                    </h3>
+                    <div id="creatorQuizList" class="space-y-3">
+                        <div class="bg-white rounded-2xl p-4 h-20 skeleton"></div>
+                        <div class="bg-white rounded-2xl p-4 h-20 skeleton"></div>
+                    </div>
+                </div>
+            </div>
+
         </main>
 
         <!-- ===== BOTTOM NAV ===== -->
@@ -614,6 +915,16 @@
                 </div>
                 <span class="text-[10px] font-semibold">Rank</span>
             </button>
+
+            <button onclick="switchView('creator')" class="nav-btn flex flex-col items-center gap-0.5 text-gray-400 transition-all relative" data-view="creator">
+                <div class="w-8 h-8 rounded-xl flex items-center justify-center transition-all nav-indicator relative" data-view="creator">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span id="creatorNavLock" class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full border border-white text-[7px] flex items-center justify-center text-white font-black">🔒</span>
+                </div>
+                <span class="text-[10px] font-semibold">Create</span>
+            </button>
             <button onclick="switchView('profile')" class="nav-btn flex flex-col items-center gap-0.5 text-gray-400 transition-all" data-view="profile">
                 <div class="w-8 h-8 rounded-xl flex items-center justify-center transition-all nav-indicator" data-view="profile">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -636,7 +947,108 @@
         }
     </style>
 
+    <!-- ========== CHAT STYLE MODAL ========== -->
+    <div id="chatStyleModal" class="hidden fixed inset-0 z-[70] bg-black/50 flex items-end" onclick="if(event.target===this)closeChatStyleModal()">
+        <div class="bg-white w-full rounded-t-3xl p-5 slide-in" style="max-height:85vh;overflow-y:auto;max-width:448px;margin:0 auto;">
+            <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="font-extrabold text-lg">✨ Chat Style</h2>
+                <button onclick="closeChatStyleModal()" class="text-gray-400 text-xl leading-none">✕</button>
+            </div>
+
+            <!-- Live Preview -->
+            <div class="mb-5 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Preview</p>
+                <div class="flex justify-end items-end gap-2">
+                    <div class="max-w-[75%]">
+                        <div id="stylePreviewIcon" class="text-right mb-1 text-xl hidden"></div>
+                        <div id="stylePreviewBubble" class="px-3.5 py-2.5 rounded-2xl rounded-br-sm shadow-md">
+                            <p id="stylePreviewText" class="text-[13px] leading-relaxed">Hey! This is how your messages look 👋</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bubble Color -->
+            <div class="mb-5">
+                <p class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Bubble Color</p>
+                <div class="grid grid-cols-5 gap-2.5" id="bubbleColorPicker"></div>
+                <div class="mt-3 flex items-center gap-2">
+                    <label class="text-xs text-gray-500 font-medium flex-shrink-0">Custom:</label>
+                    <input type="color" id="bubbleCustomColor" class="w-8 h-8 rounded-lg cursor-pointer border border-gray-200 bg-white p-0.5" oninput="onCustomBubbleColor(this.value)">
+                    <span class="text-xs text-gray-400" id="bubbleHexLabel">#0D7377</span>
+                </div>
+            </div>
+
+            <!-- Text Color -->
+            <div class="mb-5">
+                <p class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">Text Color</p>
+                <div class="flex gap-2.5 flex-wrap" id="textColorPicker"></div>
+                <div class="mt-3 flex items-center gap-2">
+                    <label class="text-xs text-gray-500 font-medium flex-shrink-0">Custom:</label>
+                    <input type="color" id="textCustomColor" class="w-8 h-8 rounded-lg cursor-pointer border border-gray-200 bg-white p-0.5" oninput="onCustomTextColor(this.value)">
+                    <span class="text-xs text-gray-400" id="textHexLabel">#FFFFFF</span>
+                </div>
+            </div>
+
+            <!-- Icon / Sticker -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs font-bold text-gray-600 uppercase tracking-wider">Icon / Sticker</p>
+                    <span class="text-[10px] text-gray-400">Shown above your messages</span>
+                </div>
+                <div class="flex gap-2 flex-wrap" id="stickerPicker">
+                    <button onclick="selectSticker(null)" id="sticker-none"
+                        class="sticker-btn w-12 h-12 rounded-xl border-2 border-gray-200 bg-gray-50 flex items-center justify-center text-gray-400 text-xs font-bold transition-all btn-press"
+                        title="No icon">✕</button>
+                </div>
+                <div id="imageStickerRow" class="mt-3 hidden">
+                    <p class="text-[10px] text-gray-400 font-semibold mb-2">FROM IMAGE FOLDER</p>
+                    <div class="flex gap-2 flex-wrap" id="imageStickerPicker"></div>
+                </div>
+            </div>
+
+            <!-- Publish toggle -->
+            <div class="mb-4 p-3.5 rounded-2xl border border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5 mb-0.5">
+                        <span class="text-sm">🌐</span>
+                        <p class="text-sm font-bold text-gray-800">Publish Style</p>
+                        <span id="publishedBadge" class="hidden text-[9px] font-bold bg-green-100 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full">LIVE</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 leading-snug">Let everyone see your bubble color, text &amp; icon</p>
+                </div>
+                <!-- Toggle switch -->
+                <button id="publishToggle" onclick="togglePublish()" type="button"
+                    class="relative w-12 h-6 rounded-full transition-all duration-300 flex-shrink-0 focus:outline-none"
+                    style="background:#E5E7EB;" aria-label="Toggle publish">
+                    <span id="publishToggleThumb"
+                        class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300"></span>
+                </button>
+            </div>
+
+            <!-- Save / Reset -->
+            <div class="flex gap-2">
+                <button onclick="saveChatStyle()" class="flex-1 bg-teal-600 text-white py-3.5 rounded-2xl font-bold btn-press shadow-md shadow-teal-200/50">Save Style</button>
+                <button onclick="resetChatStyle()" class="px-5 bg-gray-100 text-gray-600 py-3.5 rounded-2xl font-semibold btn-press">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .bubble-color-swatch { width:100%; aspect-ratio:1; border-radius:12px; cursor:pointer; border:3px solid transparent; transition:all 0.2s ease; }
+        .bubble-color-swatch.active { border-color:#111827; transform:scale(1.08); box-shadow:0 4px 12px rgba(0,0,0,0.18); }
+        .text-color-dot { width:36px; height:36px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:all 0.2s ease; }
+        .text-color-dot.active { border-color:#111827; transform:scale(1.1); box-shadow:0 4px 12px rgba(0,0,0,0.18); }
+        .sticker-btn.active { border-color:#0D7377 !important; background:#EEF9F9 !important; transform:scale(1.1); box-shadow:0 4px 12px rgba(13,115,119,0.2); }
+        .image-sticker-btn { width:48px; height:48px; border-radius:12px; border:3px solid transparent; overflow:hidden; cursor:pointer; transition:all 0.2s ease; object-fit:cover; flex-shrink:0; }
+        .image-sticker-btn.active { border-color:#0D7377; transform:scale(1.1); box-shadow:0 4px 12px rgba(13,115,119,0.25); }
+        .msg-custom-sticker { font-size:16px; line-height:1; display:block; margin-bottom:2px; }
+        .msg-custom-sticker-img { width:22px; height:22px; border-radius:5px; object-fit:cover; display:block; margin-bottom:2px; }
+    </style>
+
     <script src="js/script.js"></script>
 </body>
+
 
 </html>
